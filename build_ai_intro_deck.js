@@ -1,53 +1,31 @@
+const fs = require('node:fs');
+const path = require('node:path');
+const JSZip = require('jszip');
 const pptxgen = require('pptxgenjs');
 
 const pptx = new pptxgen();
 pptx.layout = 'LAYOUT_WIDE';
 pptx.author = 'OpenAI';
 pptx.company = 'AI Course';
-pptx.subject = '用最通俗的方式理解 AI 原理与企业落地';
+pptx.subject = '神经网络、Transformer、GPT 与 RSI';
 pptx.title = '看懂 AI，才能用好 AI';
 pptx.lang = 'zh-CN';
-pptx.theme = {
-  headFontFace: 'Cambria',
-  bodyFontFace: 'Arial',
-  lang: 'zh-CN'
-};
+pptx.theme = { headFontFace: 'Hiragino Sans GB W6', bodyFontFace: 'Hiragino Sans GB W3', lang: 'zh-CN' };
 
-const W = 13.333;
-const H = 7.5;
+const FONT = { head: 'Hiragino Sans GB W6', body: 'Hiragino Sans GB W3' };
 const C = {
-  ink: '10212B',
-  navy: '0B1020',
-  indigo: '1A2454',
-  teal: '1B998B',
-  mint: '34D399',
-  ice: '6EE7F9',
-  coral: 'FF7A59',
-  amber: 'FFC857',
-  red: 'E85D75',
-  white: 'FFFFFF',
-  paper: 'F7FAFC',
-  pale: 'EEF5F5',
-  line: 'D6E2E6',
-  muted: '637381',
-  soft: 'E8EFF2',
-  darkMuted: 'A9B5C6'
+  ink: '10212B', navy: '0B1020', indigo: '1A2454', teal: '1B998B', mint: '34D399',
+  ice: '6EE7F9', coral: 'FF7A59', amber: 'FFC857', white: 'FFFFFF',
+  paper: 'F7FAFC', pale: 'EEF5F5', line: 'D6E2E6', muted: '637381', darkMuted: 'A9B5C6',
+  soft: 'E8EFF2'
 };
 
-// PingFang SC is installed on the target macOS/LibreOffice environment and
-// keeps Chinese glyphs visible in both the deck and the rendered QA images.
-const FONT = { head: 'Noto Sans CJK SC', body: 'Noto Sans CJK SC' };
-
-function addBg(slide, color = C.paper) {
-  slide.background = { color };
-}
+function addBg(slide, color = C.paper) { slide.background = { color }; }
 
 function addTitle(slide, title, kicker, dark = false) {
-  const color = dark ? C.white : C.ink;
-  const muted = dark ? C.darkMuted : C.muted;
-  if (kicker) slide.addText(kicker.toUpperCase(), { x: 0.65, y: 0.38, w: 4.8, h: 0.24, fontFace: FONT.body, fontSize: 11, bold: true, charSpacing: 1.8, color: dark ? C.ice : C.teal, margin: 0 });
-  slide.addText(title, { x: 0.65, y: 0.66, w: 9.8, h: 0.58, fontFace: FONT.head, fontSize: 27, bold: true, color, margin: 0, breakLine: false, fit: 'shrink' });
-  slide.addText('看懂原理 → 会算账 → 设边界 → 留人复核', { x: 8.55, y: 0.47, w: 4.1, h: 0.22, fontFace: FONT.body, fontSize: 9.5, color: muted, align: 'right', margin: 0 });
+  slide.addText(kicker.toUpperCase(), { x: 0.65, y: 0.32, w: 6.5, h: 0.23, fontFace: FONT.body, fontSize: 10.5, bold: true, charSpacing: 1.4, color: dark ? C.ice : C.teal, margin: 0 });
+  slide.addText(title, { x: 0.65, y: 0.64, w: 12, h: 0.54, fontFace: FONT.head, fontSize: 26, bold: true, color: dark ? C.white : C.ink, margin: 0, fit: 'shrink' });
+  slide.addShape(pptx.ShapeType.line, { x: 0.65, y: 1.3, w: 1.15, h: 0, line: { color: dark ? C.ice : C.teal, width: 2.8 } });
 }
 
 function addFooter(slide, n, dark = false) {
@@ -58,422 +36,326 @@ function addNotes(slide, text) { slide.addNotes(text); }
 
 function card(slide, x, y, w, h, opts = {}) {
   slide.addShape(pptx.ShapeType.roundRect, {
-    x, y, w, h,
-    rectRadius: 0.12,
+    x, y, w, h, rectRadius: 0.1,
     fill: { color: opts.fill || C.white, transparency: opts.transparency || 0 },
-    line: { color: opts.line || C.line, transparency: opts.lineTransparency ?? 0, width: opts.lineWidth || 1 },
+    line: { color: opts.line || C.line, width: opts.lineWidth || 1, transparency: opts.lineTransparency || 0 },
     shadow: opts.shadow ? { type: 'outer', color: '7D8A91', blur: 1, angle: 45, distance: 1, opacity: 0.12 } : undefined
   });
 }
 
-function pill(slide, text, x, y, w, color, fill, fs = 11) {
-  slide.addShape(pptx.ShapeType.roundRect, { x, y, w, h: 0.32, rectRadius: 0.16, fill: { color: fill }, line: { color: fill } });
-  slide.addText(text, { x, y: y + 0.06, w, h: 0.17, fontFace: FONT.body, fontSize: fs, bold: true, color, align: 'center', margin: 0 });
+function label(slide, text, x, y, w, color = C.muted, fs = 12, opts = {}) {
+  slide.addText(text, { x, y, w, h: opts.h || 0.25, fontFace: opts.fontFace || FONT.body, fontSize: fs, bold: !!opts.bold, italic: !!opts.italic, color, align: opts.align || 'left', valign: opts.valign || 'mid', margin: opts.margin ?? 0, fit: 'shrink' });
 }
 
-function dot(slide, x, y, r, fill, line = fill) {
-  slide.addShape(pptx.ShapeType.ellipse, { x, y, w: r, h: r, fill: { color: fill }, line: { color: line, width: 1 } });
+function pill(slide, text, x, y, w, fill, color = C.navy, fs = 11) {
+  slide.addShape(pptx.ShapeType.roundRect, { x, y, w, h: 0.31, rectRadius: 0.15, fill: { color: fill }, line: { color: fill } });
+  label(slide, text, x, y + 0.05, w, color, fs, { align: 'center', bold: true });
 }
 
-function line(slide, x1, y1, x2, y2, color = C.line, width = 1.5, dash = 'solid', begin = 'none', end = 'none') {
-  slide.addShape(pptx.ShapeType.line, { x: x1, y: y1, w: x2 - x1, h: y2 - y1, line: { color, width, dash, beginArrowType: begin, endArrowType: end } });
+function dot(slide, x, y, r, fill, lineColor = fill) {
+  slide.addShape(pptx.ShapeType.ellipse, { x, y, w: r, h: r, fill: { color: fill }, line: { color: lineColor, width: 1 } });
 }
 
-function arrow(slide, x, y, w, h, color = C.teal) {
+function line(slide, x1, y1, x2, y2, color = C.line, width = 1.5, dash = 'solid', end = 'none') {
+  slide.addShape(pptx.ShapeType.line, { x: x1, y: y1, w: x2 - x1, h: y2 - y1, line: { color, width, dash, endArrowType: end } });
+}
+
+function arrow(slide, x, y, w = 0.36, h = 0.24, color = C.teal) {
   slide.addShape(pptx.ShapeType.chevron, { x, y, w, h, fill: { color }, line: { color } });
 }
 
-function label(slide, text, x, y, w, color = C.muted, fs = 11, opts = {}) {
-  slide.addText(text, { x, y, w, h: opts.h || 0.24, fontFace: opts.fontFace || FONT.body, fontSize: fs, bold: !!opts.bold, italic: !!opts.italic, color, align: opts.align || 'left', valign: opts.valign || 'mid', margin: opts.margin ?? 0, breakLine: false, fit: 'shrink' });
+function step(slide, x, y, n, title, sub, fill) {
+  dot(slide, x, y, 0.37, fill);
+  label(slide, String(n), x, y + 0.07, 0.37, C.navy, 12, { align: 'center', bold: true });
+  label(slide, title, x + 0.55, y + 0.01, 1.85, C.ink, 15, { bold: true });
+  label(slide, sub, x + 0.55, y + 0.29, 2.8, C.muted, 11.5);
 }
 
-function body(slide, text, x, y, w, h, opts = {}) {
-  slide.addText(text, { x, y, w, h, fontFace: FONT.body, fontSize: opts.fs || 16, color: opts.color || C.ink, bold: !!opts.bold, breakLine: false, margin: opts.margin ?? 0, valign: opts.valign || 'top', fit: 'shrink', paraSpaceAfterPt: opts.paraSpaceAfterPt || 6, bullet: opts.bullet });
+function addGrid(slide, x, y, cell, rows, cols, highlight = null) {
+  for (let r = 0; r < rows; r += 1) {
+    for (let c = 0; c < cols; c += 1) {
+      const active = highlight && r >= highlight.r && r < highlight.r + highlight.h && c >= highlight.c && c < highlight.c + highlight.w;
+      slide.addShape(pptx.ShapeType.rect, { x: x + c * cell, y: y + r * cell, w: cell - 0.01, h: cell - 0.01, fill: { color: active ? C.coral : ((r + c) % 3 === 0 ? C.ice : C.soft), transparency: active ? 0 : 18 }, line: { color: C.white, transparency: 35, width: 0.5 } });
+    }
+  }
 }
 
 // 01 — Cover
 {
   const s = pptx.addSlide(); addBg(s, C.navy);
-  s.addShape(pptx.ShapeType.ellipse, { x: 8.3, y: 0.5, w: 4.1, h: 4.1, fill: { color: C.indigo, transparency: 22 }, line: { color: C.ice, transparency: 55, width: 1.2 } });
-  s.addShape(pptx.ShapeType.ellipse, { x: 9.2, y: 1.4, w: 2.3, h: 2.3, fill: { color: C.teal, transparency: 18 }, line: { color: C.ice, transparency: 25, width: 1.5 } });
-  s.addText('看懂 AI，\n才能用好 AI', { x: 0.75, y: 1.1, w: 6.7, h: 1.6, fontFace: FONT.head, fontSize: 34, bold: true, color: C.white, margin: 0, breakLine: false, fit: 'shrink' });
-  s.addText('从函数、神经网络到企业流程的一条故事线', { x: 0.78, y: 3.0, w: 6.0, h: 0.34, fontFace: FONT.body, fontSize: 17, color: C.ice, margin: 0 });
-  s.addText('AI 不是魔法，是一台从例子里调旋钮、再按旋钮给答案的概率机器。', { x: 0.78, y: 4.05, w: 5.8, h: 0.55, fontFace: FONT.body, fontSize: 15, color: C.darkMuted, margin: 0, breakLine: false, fit: 'shrink' });
-  // right-side function story
-  label(s, '输入', 8.22, 5.33, 0.85, C.darkMuted, 11, { align: 'center' });
-  label(s, '模型', 10.1, 5.33, 0.85, C.darkMuted, 11, { align: 'center' });
-  label(s, '行动', 11.95, 5.33, 0.85, C.darkMuted, 11, { align: 'center' });
-  dot(s, 8.45, 4.75, 0.45, C.ice); dot(s, 10.32, 4.75, 0.45, C.teal); dot(s, 12.18, 4.75, 0.45, C.coral);
-  line(s, 8.9, 4.98, 10.3, 4.98, C.ice, 2, 'solid', 'none', 'triangle');
-  line(s, 10.77, 4.98, 12.17, 4.98, C.teal, 2, 'solid', 'none', 'triangle');
-  s.addText('fθ(x)', { x: 9.48, y: 2.15, w: 2.0, h: 0.55, fontFace: FONT.head, fontSize: 30, bold: true, italic: true, color: C.white, align: 'center', margin: 0 });
-  s.addText('企业的关键问题不是“要不要 AI”，\n而是“把它放在哪个工位”。', { x: 8.0, y: 5.85, w: 4.4, h: 0.56, fontFace: FONT.body, fontSize: 15, color: C.white, align: 'center', margin: 0, fit: 'shrink' });
-  s.addText('企业 AI 原理入门 · 2026', { x: 0.78, y: 6.75, w: 3.0, h: 0.2, fontFace: FONT.body, fontSize: 10, color: C.darkMuted, margin: 0 });
-  addFooter(s, 1, true);
-  addNotes(s, '开场：今天不从术语背诵开始，而是从一个问题开始——AI 到底在做什么？理解它的工作方式，才能知道哪些工作适合交给它，哪些工作必须保留人。');
+  s.addText('看懂 AI，\n才能用好 AI', { x: 0.8, y: 1.0, w: 5.8, h: 1.45, fontFace: FONT.head, fontSize: 34, bold: true, color: C.white, margin: 0, fit: 'shrink' });
+  s.addText('从神经网络、Transformer、GPT 到 RSI', { x: 0.83, y: 2.85, w: 6.0, h: 0.32, fontFace: FONT.body, fontSize: 17, color: C.ice, margin: 0 });
+  s.addText('AI 不是魔法，是一套从例子里调参数，再对新输入做计算的系统。', { x: 0.83, y: 3.55, w: 5.8, h: 0.55, fontFace: FONT.body, fontSize: 15, color: C.darkMuted, margin: 0, fit: 'shrink' });
+  const flow = [{ x: 7.4, title: '输入', sub: '图片 / 文字 / 数据', c: C.ice }, { x: 9.45, title: '模型', sub: '参数 + 计算结构', c: C.teal }, { x: 11.5, title: '输出', sub: '预测 / 生成 / 动作', c: C.coral }];
+  flow.forEach((it, i) => { card(s, it.x, 2.2, 1.5, 1.55, { fill: C.indigo, line: it.c, lineWidth: 1.5 }); dot(s, it.x + 0.56, 2.48, 0.38, it.c); label(s, it.title, it.x + 0.15, 3.0, 1.2, C.white, 16, { align: 'center', bold: true }); label(s, it.sub, it.x + 0.1, 3.38, 1.3, C.darkMuted, 10.5, { align: 'center' }); if (i < flow.length - 1) arrow(s, it.x + 1.58, 2.85, 0.38, 0.26, it.c); });
+  label(s, '训练：调整参数', 7.45, 4.55, 1.45, C.ice, 12, { align: 'center', bold: true });
+  label(s, '推理：使用参数', 9.5, 4.55, 1.45, C.mint, 12, { align: 'center', bold: true });
+  label(s, '复核：检查结果', 11.55, 4.55, 1.45, C.coral, 12, { align: 'center', bold: true });
+  addFooter(s, 1, true); addNotes(s, '开场先给路线：先理解模型怎样算，再理解它怎样学，最后看为什么还需要工具、评估和 RSI。');
 }
 
-// 02 — Story map
+// 02 — Function and training/inference
 {
-  const s = pptx.addSlide(); addBg(s); addTitle(s, '先讲一个企业故事：新人小林如何变成“数字同事”', '01 · 先建立直觉');
-  s.addText('给他 10 万条历史订单、客服对话和质检照片。先学习，再接单；答错要复盘，不能直接签字。', { x: 0.68, y: 1.42, w: 11.8, h: 0.44, fontFace: FONT.body, fontSize: 16, color: C.ink, margin: 0, fit: 'shrink' });
-  const steps = [
-    ['看资料', '数据', '从过去案例里找规律', C.ice],
-    ['练习', '训练', '把“旋钮”调到合适', C.teal],
-    ['接单', '推理', '拿新问题算一个答案', C.coral],
-    ['复核', '闭环', '错了记录，继续改进', C.amber]
-  ];
-  steps.forEach((it, i) => {
-    const x = 0.72 + i * 3.12;
-    card(s, x, 2.35, 2.55, 2.45, { fill: C.white, line: it[3], lineWidth: 1.6, shadow: true });
-    dot(s, x + 0.22, 2.58, 0.32, it[3]);
-    label(s, String(i + 1), x + 0.22, 2.64, 0.32, C.navy, 12, { align: 'center', bold: true });
-    label(s, it[0], x + 0.68, 2.56, 1.58, C.ink, 19, { bold: true });
-    pill(s, it[1], x + 0.22, 3.16, 0.78, C.navy, it[3], 10);
-    body(s, it[2], x + 0.22, 3.75, 1.95, 0.56, { fs: 14, color: C.muted });
-    if (i < steps.length - 1) arrow(s, x + 2.66, 3.35, 0.34, 0.28, C.line);
-  });
-  card(s, 0.72, 5.38, 11.95, 0.85, { fill: C.indigo, line: C.indigo });
-  s.addText('这就把三个问题串起来了：AI 怎样学？为什么会错？企业该把哪类工作交给它？', { x: 1.03, y: 5.65, w: 11.25, h: 0.28, fontFace: FONT.body, fontSize: 17, bold: true, color: C.white, align: 'center', margin: 0, fit: 'shrink' });
-  addFooter(s, 2);
-  addNotes(s, '用“新人小林”贯穿全场。数据像他的工作档案，训练像岗前练习，推理像接单做事，复核像绩效复盘。AI 的价值来自整个闭环，而不是某一次回答。');
+  const s = pptx.addSlide(); addBg(s); addTitle(s, 'AI 的核心：先找到一组参数，再用它处理新输入', '01 · 训练与推理');
+  s.addText('把模型写成一个函数：', { x: 0.8, y: 1.55, w: 2.5, h: 0.25, fontFace: FONT.body, fontSize: 16, color: C.muted, margin: 0 });
+  s.addText('ŷ = f(x; θ)', { x: 3.1, y: 1.36, w: 3.1, h: 0.55, fontFace: FONT.head, fontSize: 28, bold: true, italic: true, color: C.indigo, margin: 0, align: 'center' });
+  card(s, 0.8, 2.15, 5.7, 3.65, { fill: C.white, line: C.ice, lineWidth: 1.6, shadow: true });
+  pill(s, '训练：参数会变', 1.1, 2.48, 1.5, C.ice, C.navy, 12);
+  step(s, 1.12, 3.14, 1, '输入 + 答案', '看历史样本', C.ice);
+  step(s, 1.12, 3.95, 2, '预测与答案比较', '计算损失', C.teal);
+  step(s, 1.12, 4.76, 3, '反向传播更新 θ', '让错误变小', C.coral);
+  line(s, 1.3, 5.32, 5.7, 5.32, C.amber, 2, 'dash', 'triangle');
+  label(s, '训练是一条反馈回路', 3.0, 5.42, 2.1, C.amber, 12, { align: 'center', bold: true });
+  card(s, 6.85, 2.15, 5.7, 3.65, { fill: C.white, line: C.coral, lineWidth: 1.6, shadow: true });
+  pill(s, '推理：参数通常不变', 7.15, 2.48, 1.72, C.coral, C.white, 12);
+  card(s, 7.18, 3.35, 1.35, 0.78, { fill: C.pale, line: C.line }); label(s, '新输入 x', 7.18, 3.62, 1.35, C.indigo, 14, { align: 'center', bold: true });
+  arrow(s, 8.75, 3.62, 0.45, 0.28, C.teal);
+  card(s, 9.35, 3.2, 1.55, 1.08, { fill: C.indigo, line: C.indigo }); label(s, 'fθ', 9.35, 3.54, 1.55, C.white, 22, { align: 'center', bold: true });
+  arrow(s, 11.1, 3.62, 0.45, 0.28, C.coral);
+  card(s, 11.7, 3.35, 0.78, 0.78, { fill: C.coral, line: C.coral }); label(s, 'ŷ', 11.7, 3.62, 0.78, C.white, 18, { align: 'center', bold: true });
+  label(s, '推理是在代入公式，不是在现场重新训练。', 7.2, 4.85, 4.75, C.muted, 14, { align: 'center', bold: true });
+  addFooter(s, 2); addNotes(s, '这页把训练和推理放在同一张图中。训练是“预测—比较—更新”的反馈回路；推理是参数固定后，给新输入做一次前向计算。');
 }
 
-// 03 — AI definition
+// 03 — Neuron
 {
-  const s = pptx.addSlide(); addBg(s); addTitle(s, '一句话定义 AI：给定函数，先找旋钮，再算答案', '02 · 训练与推理');
-  s.addText('把模型想成一个函数：', { x: 0.78, y: 1.42, w: 2.6, h: 0.3, fontFace: FONT.body, fontSize: 16, color: C.muted, margin: 0 });
-  s.addText('y = f(x; θ)', { x: 3.0, y: 1.25, w: 3.0, h: 0.55, fontFace: FONT.head, fontSize: 28, bold: true, italic: true, color: C.indigo, margin: 0, align: 'center' });
-  card(s, 0.78, 2.16, 5.55, 3.35, { fill: C.white, line: C.ice, lineWidth: 1.5, shadow: true });
-  pill(s, '训练', 1.06, 2.47, 0.88, C.navy, C.ice, 12);
-  body(s, '给很多“输入 → 正确输出”的例子，\n反过来把参数 θ 调到合适。', 1.06, 3.05, 4.7, 0.78, { fs: 20, bold: true, color: C.ink });
-  label(s, '像调收音机：一点点拧旋钮，让杂音变少。', 1.06, 4.32, 4.55, C.muted, 13);
-  const trainPts = [[1.2, 4.9], [2.2, 4.68], [3.1, 4.83], [4.0, 4.55], [5.0, 4.38]];
-  trainPts.forEach((p, i) => { dot(s, p[0], p[1], 0.16, i === 4 ? C.coral : C.teal); if (i < trainPts.length - 1) line(s, p[0] + 0.15, p[1] + 0.08, trainPts[i + 1][0], trainPts[i + 1][1] + 0.08, C.line, 1.5); });
-  card(s, 6.95, 2.16, 5.58, 3.35, { fill: C.white, line: C.coral, lineWidth: 1.5, shadow: true });
-  pill(s, '推理', 7.23, 2.47, 0.88, C.white, C.coral, 12);
-  body(s, '参数 θ 固定，给一个新输入 x，\n计算出答案 ŷ。', 7.23, 3.05, 4.75, 0.78, { fs: 20, bold: true, color: C.ink });
-  label(s, '像拿着已经调好的收音机，听一条新频道。', 7.23, 4.32, 4.85, C.muted, 13);
-  s.addShape(pptx.ShapeType.roundRect, { x: 7.34, y: 4.74, w: 4.58, h: 0.52, rectRadius: 0.14, fill: { color: C.pale }, line: { color: C.pale } });
-  label(s, '新问题 x', 7.55, 4.89, 0.95, C.indigo, 13, { bold: true });
-  arrow(s, 8.7, 4.87, 0.45, 0.25, C.teal);
-  label(s, '模型 fθ', 9.38, 4.89, 1.15, C.indigo, 13, { bold: true });
-  arrow(s, 10.75, 4.87, 0.45, 0.25, C.teal);
-  label(s, '答案 ŷ', 11.42, 4.89, 0.7, C.coral, 13, { bold: true });
-  s.addText('训练反复减少误差，在验证表现上逼近一组能泛化的参数；推理时参数通常冻结。', { x: 0.95, y: 6.02, w: 11.35, h: 0.36, fontFace: FONT.body, fontSize: 14.5, color: C.indigo, bold: true, align: 'center', margin: 0, fit: 'shrink' });
-  addFooter(s, 3);
-  addNotes(s, '核心类比：训练是反过来找参数，推理是参数固定后代入新输入。这个区分能帮助企业理解：训练是一次性投入，推理是每次调用都会产生的成本与时延。');
+  const s = pptx.addSlide(); addBg(s, C.pale); addTitle(s, '一个神经元：先混合线索，再决定是否放行', '02 · 神经网络');
+  card(s, 0.75, 1.7, 6.0, 4.8, { fill: C.white, line: C.line, shadow: true });
+  label(s, '具体算一遍', 1.05, 2.0, 1.6, C.indigo, 18, { bold: true });
+  label(s, 'z = 0.8x₁ + 0.1x₂ − 0.4x₃ + b', 1.05, 2.47, 4.9, C.ink, 19, { bold: true });
+  const vals = [['客户说“太贵”', 'x₁ = 1.0', '× 0.8', C.ice], ['近 30 天退货率', 'x₂ = 0.5', '× 0.1', C.teal], ['季节因素', 'x₃ = 0.2', '× −0.4', C.coral]];
+  vals.forEach((it, i) => { const y = 3.13 + i * 0.62; pill(s, it[0], 1.05, y, 1.75, C.pale, C.ink, 10.5); label(s, it[1], 3.0, y + 0.06, 1.0, C.indigo, 12, { bold: true }); label(s, it[2], 4.25, y + 0.06, 0.85, it[3], 12, { bold: true }); });
+  label(s, 'z = 0.8 + 0.05 − 0.08 + b', 1.05, 5.18, 4.2, C.ink, 15, { bold: true });
+  label(s, 'ReLU(z) = max(0, z)', 1.05, 5.6, 3.5, C.coral, 15, { bold: true });
+  card(s, 7.1, 1.7, 5.45, 4.8, { fill: C.white, line: C.coral, shadow: true });
+  label(s, '为什么需要激活函数？', 7.4, 2.0, 3.5, C.indigo, 18, { bold: true });
+  line(s, 7.85, 5.35, 11.9, 5.35, C.line, 1.2); line(s, 9.55, 5.75, 9.55, 2.95, C.line, 1.2);
+  line(s, 8.1, 5.35, 9.55, 5.35, C.coral, 3.5); line(s, 9.55, 5.35, 11.25, 3.15, C.teal, 3.5);
+  label(s, 'z < 0：输出 0', 7.7, 5.55, 1.55, C.coral, 12, { bold: true }); label(s, 'z > 0：原样放行', 10.1, 3.0, 1.85, C.teal, 12, { bold: true });
+  label(s, '没有非线性，多层线性计算仍可合并成一层。', 7.48, 6.0, 4.7, C.muted, 13, { align: 'center', bold: true });
+  addFooter(s, 3); addNotes(s, '把公式落到一个数值过程：输入乘权重、加总、经过 ReLU。激活函数提供折点，让多层网络能够表达弯曲的关系。');
 }
 
-// 04 — training vs inference
+// 04 — CNN derived from vision
 {
-  const s = pptx.addSlide(); addBg(s, C.pale); addTitle(s, '训练 vs 推理：一个是在改公式，一个是在代公式', '03 · 两个过程');
-  card(s, 0.75, 1.5, 5.8, 4.72, { fill: C.white, line: C.ice, lineWidth: 1.5, shadow: true });
-  pill(s, '训练：像学厨师', 1.04, 1.8, 1.62, C.navy, C.ice, 12);
-  const tx = [
-    ['1', '看很多菜谱和历史订单', C.indigo],
-    ['2', '试做，和标准答案比差多少', C.teal],
-    ['3', '根据“差距”调味、改参数', C.coral]
-  ];
-  tx.forEach((it, i) => { const y = 2.55 + i * 0.83; dot(s, 1.1, y, 0.34, it[2]); label(s, it[0], 1.1, y + 0.07, 0.34, C.white, 12, { align: 'center', bold: true }); body(s, it[1], 1.65, y + 0.02, 4.2, 0.3, { fs: 16, bold: i === 2, color: C.ink }); if (i < 2) line(s, 1.27, y + 0.37, 1.27, y + 0.67, C.line, 1.2, 'dash'); });
-  label(s, '特点：慢、贵、集中发生；决定“学会什么”。', 1.05, 5.35, 4.95, C.muted, 13);
-  card(s, 6.8, 1.5, 5.8, 4.72, { fill: C.white, line: C.coral, lineWidth: 1.5, shadow: true });
-  pill(s, '推理：像接单做菜', 7.09, 1.8, 1.72, C.white, C.coral, 12);
-  const ix = [
-    ['1', '收到一个新问题', C.indigo],
-    ['2', '按已经调好的配方计算', C.teal],
-    ['3', '每个 token 都要付算力', C.coral]
-  ];
-  ix.forEach((it, i) => { const y = 2.55 + i * 0.83; dot(s, 7.15, y, 0.34, it[2]); label(s, it[0], 7.15, y + 0.07, 0.34, C.white, 12, { align: 'center', bold: true }); body(s, it[1], 7.7, y + 0.02, 4.2, 0.3, { fs: 16, bold: i === 2, color: C.ink }); if (i < 2) line(s, 7.32, y + 0.37, 7.32, y + 0.67, C.line, 1.2, 'dash'); });
-  label(s, '特点：每问一次都花钱；长上下文、并发会放大成本。', 7.1, 5.35, 4.95, C.muted, 13);
-  s.addText('企业决策：训练决定能力边界；推理决定日常账单。', { x: 1.05, y: 6.58, w: 11.3, h: 0.32, fontFace: FONT.body, fontSize: 17, bold: true, color: C.indigo, align: 'center', margin: 0 });
-  addFooter(s, 4);
-  addNotes(s, '把训练和推理分开讲，听众就能理解为什么“模型训练很贵”与“每次调用也要付钱”是两笔不同的账。');
+  const s = pptx.addSlide(); addBg(s); addTitle(s, '卷积网络：把“人看局部线索”总结成结构', '03 · 网络结构');
+  s.addText('人看一张图时，不需要同时处理每个像素；先找局部线索，再把线索组合成整体。卷积网络把这个现象写进了结构。', { x: 0.8, y: 1.52, w: 11.8, h: 0.42, fontFace: FONT.body, fontSize: 15.5, color: C.ink, margin: 0, fit: 'shrink' });
+  card(s, 0.8, 2.18, 3.2, 3.75, { fill: C.white, line: C.ice, lineWidth: 1.5, shadow: true });
+  label(s, '人类视觉：先看一小块', 1.1, 2.48, 2.55, C.indigo, 16, { bold: true, align: 'center' });
+  addGrid(s, 1.28, 3.08, 0.34, 7, 7, { r: 2, c: 3, h: 3, w: 3 });
+  label(s, '局部感受野', 1.25, 5.58, 2.45, C.coral, 14, { align: 'center', bold: true });
+  arrow(s, 4.28, 3.8, 0.48, 0.32, C.teal);
+  card(s, 4.9, 2.18, 3.35, 3.75, { fill: C.white, line: C.teal, lineWidth: 1.5, shadow: true });
+  label(s, '工程化结构：卷积核扫描', 5.2, 2.48, 2.75, C.indigo, 16, { bold: true, align: 'center' });
+  addGrid(s, 5.35, 3.13, 0.33, 5, 5, { r: 1, c: 1, h: 3, w: 3 });
+  label(s, '3×3 小窗口反复共享同一组权重', 5.18, 5.38, 2.85, C.teal, 12, { align: 'center', bold: true, h: 0.43 });
+  arrow(s, 8.55, 3.8, 0.48, 0.32, C.teal);
+  card(s, 9.18, 2.18, 3.4, 3.75, { fill: C.white, line: C.coral, lineWidth: 1.5, shadow: true });
+  label(s, '逐层组合：从边缘到整体', 9.48, 2.48, 2.8, C.indigo, 16, { bold: true, align: 'center' });
+  const stages = [['边缘', C.ice], ['角点 / 纹理', C.teal], ['眼睛 / 轮廓', C.indigo], ['物体', C.coral]];
+  stages.forEach((it, i) => { const y = 3.1 + i * 0.55; pill(s, it[0], 9.55 + i * 0.16, y, 1.2 + i * 0.25, it[1], i === 2 ? C.white : C.navy, 11); if (i < stages.length - 1) arrow(s, 10.9 + i * 0.16, y + 0.08, 0.28, 0.18, C.line); });
+  label(s, '结论：结构不是凭空发明，而是对现实现象的工程化总结。', 2.05, 6.35, 9.2, C.indigo, 16, { align: 'center', bold: true });
+  addFooter(s, 4); addNotes(s, '重点讲清用户要求的结论：网络结构来自对现实规律的总结。人类视觉先看局部，再组合整体；CNN 用局部感受野、共享卷积核、池化和逐层特征组合来实现类似的计算偏置。');
 }
 
-// 05 — neuron linear + activation
+// 05 — CNN pipeline
 {
-  const s = pptx.addSlide(); addBg(s); addTitle(s, '一个神经元：线性层负责“混合”，激活函数负责“开闸”', '04 · 神经网络');
-  card(s, 0.75, 1.55, 6.05, 4.75, { fill: C.white, line: C.line, lineWidth: 1.2, shadow: true });
-  pill(s, '线性层：y = Wx + b', 1.05, 1.86, 2.05, C.navy, C.ice, 12);
-  label(s, '把每个线索乘上权重，再加总', 1.05, 2.38, 3.6, C.muted, 13);
-  const inputs = [['客户说“太贵”', 'x₁', C.ice], ['近 30 天退货率', 'x₂', C.teal], ['季节因素', 'x₃', C.coral]];
-  inputs.forEach((it, i) => { const y = 3.02 + i * 0.74; s.addShape(pptx.ShapeType.roundRect, { x: 1.05, y, w: 2.08, h: 0.42, rectRadius: 0.1, fill: { color: C.pale }, line: { color: C.pale } }); label(s, it[0], 1.19, y + 0.11, 1.42, C.ink, 12, { bold: true }); label(s, it[1], 2.57, y + 0.11, 0.35, it[2], 11, { bold: true, align: 'right' }); line(s, 3.22, y + 0.21, 4.25, 3.76, it[2], 1.8, 'solid', 'none', 'triangle'); });
-  s.addShape(pptx.ShapeType.ellipse, { x: 4.15, y: 3.35, w: 1.08, h: 1.08, fill: { color: C.indigo }, line: { color: C.indigo } });
-  label(s, '加权\n求和', 4.15, 3.61, 1.08, C.white, 12, { align: 'center', bold: true, h: 0.4 });
-  line(s, 5.24, 3.9, 6.1, 3.9, C.indigo, 1.8, 'solid', 'none', 'triangle');
-  s.addShape(pptx.ShapeType.roundRect, { x: 6.05, y: 3.45, w: 0.5, h: 0.9, rectRadius: 0.15, fill: { color: C.coral }, line: { color: C.coral } });
-  label(s, '输出', 6.06, 3.76, 0.48, C.white, 10, { align: 'center', bold: true });
-  label(s, '权重只是“线索旋钮”的直觉比喻；真实重要性要靠评测验证。', 1.05, 5.55, 5.15, C.muted, 12.5);
-  card(s, 7.1, 1.55, 5.45, 4.75, { fill: C.white, line: C.coral, lineWidth: 1.5, shadow: true });
-  pill(s, '激活：ReLU', 7.4, 1.86, 1.28, C.white, C.coral, 12);
-  label(s, '负数关掉，正数放行：ReLU(z)=max(0,z)', 7.4, 2.38, 4.25, C.muted, 13);
-  line(s, 8.0, 5.48, 11.82, 5.48, C.line, 1.2);
-  line(s, 10.02, 5.88, 10.02, 2.98, C.line, 1.2);
-  line(s, 8.38, 5.48, 10.02, 5.48, C.coral, 3.2);
-  line(s, 10.02, 5.48, 11.42, 3.35, C.teal, 3.2);
-  label(s, '−', 7.9, 5.6, 0.28, C.muted, 15, { bold: true, align: 'center' }); label(s, '+', 11.85, 5.6, 0.28, C.muted, 15, { bold: true, align: 'center' });
-  label(s, '关', 8.72, 5.55, 0.5, C.coral, 12, { bold: true }); label(s, '开', 10.82, 3.0, 0.5, C.teal, 12, { bold: true });
-  s.addText('一层很简单；很多层把简单规则叠成复杂表达。', { x: 7.42, y: 5.82, w: 4.5, h: 0.3, fontFace: FONT.body, fontSize: 14.5, bold: true, color: C.indigo, align: 'center', margin: 0, fit: 'shrink' });
-  addFooter(s, 5);
-  addNotes(s, '不要把“神经元”讲成会思考的小人。它就是一个小计算单元：先做加权求和，再由激活函数决定是否放行。线性层混合信息，激活函数提供非线性。');
+  const s = pptx.addSlide(); addBg(s, C.pale); addTitle(s, '卷积网络怎样一步步把图片变成分类结果', '04 · 从现象到实现');
+  const items = [['28×28 图片', '原始像素', C.ice], ['3×3 卷积', '识别局部边缘', C.teal], ['特征图', '边缘位置保留下来', C.indigo], ['池化', '压缩尺寸，保留强信号', C.amber], ['全连接', '综合线索做分类', C.coral]];
+  items.forEach((it, i) => { const x = 0.7 + i * 2.5; card(s, x, 2.35, 2.05, 2.25, { fill: C.white, line: it[2], lineWidth: 1.5, shadow: true }); dot(s, x + 0.83, 2.65, 0.38, it[2]); label(s, String(i + 1), x + 0.83, 2.73, 0.38, C.navy, 12, { align: 'center', bold: true }); label(s, it[0], x + 0.15, 3.25, 1.75, C.ink, 16, { align: 'center', bold: true }); label(s, it[1], x + 0.18, 3.82, 1.7, C.muted, 11.5, { align: 'center', h: 0.38 }); if (i < items.length - 1) arrow(s, x + 2.12, 3.35, 0.3, 0.22, C.line); });
+  label(s, '局部 → 组合 → 压缩 → 判断', 3.65, 5.4, 5.8, C.indigo, 22, { align: 'center', bold: true });
+  label(s, '不同任务采用不同结构：图像常利用空间局部性；文本需要处理序列和远距离关系。', 1.0, 6.2, 11.2, C.muted, 14, { align: 'center', bold: true });
+  addFooter(s, 5); addNotes(s, '这一页作为上一页的“工程流水线”补充。让听众看到结构里的每个部件为什么存在，而不是只记住 CNN 三个字。');
 }
 
-// 06 — activation intuition
+// 06 — Transformer attention
 {
-  const s = pptx.addSlide(); addBg(s, C.pale); addTitle(s, '为什么需要激活函数？把直线折成能拐弯的路', '05 · 非线性');
-  s.addText('没有激活：叠很多层，仍然像一把直尺。', { x: 0.78, y: 1.46, w: 4.9, h: 0.28, fontFace: FONT.body, fontSize: 16, color: C.ink, bold: true, margin: 0 });
-  card(s, 0.78, 2.0, 5.45, 3.95, { fill: C.white, line: C.line, shadow: true });
-  line(s, 1.35, 5.35, 5.67, 5.35, C.line, 1.2); line(s, 1.55, 5.55, 1.55, 2.58, C.line, 1.2);
-  line(s, 1.65, 5.1, 5.5, 2.85, C.indigo, 3.5);
-  label(s, '只能用一条直线\n切分世界', 2.25, 3.25, 2.7, C.indigo, 18, { align: 'center', bold: true, h: 0.58 });
-  label(s, '猫 / 狗、流失 / 不流失、\n合格 / 不合格……很多边界不是直的。', 1.3, 5.62, 4.3, C.muted, 12, { align: 'center', h: 0.45 });
-  s.addText('加上激活：每个神经元都能在不同区域换一条规则。', { x: 6.92, y: 1.46, w: 5.55, h: 0.28, fontFace: FONT.body, fontSize: 16, color: C.ink, bold: true, margin: 0 });
-  card(s, 6.92, 2.0, 5.55, 3.95, { fill: C.white, line: C.teal, lineWidth: 1.4, shadow: true });
-  line(s, 7.48, 5.35, 11.9, 5.35, C.line, 1.2); line(s, 7.68, 5.55, 7.68, 2.58, C.line, 1.2);
-  line(s, 7.78, 5.35, 9.35, 5.35, C.coral, 3.2);
-  line(s, 9.35, 5.35, 11.57, 3.02, C.teal, 3.2);
-  dot(s, 9.22, 5.22, 0.25, C.amber);
-  label(s, '一个折点很简单；\n很多折点就能逼近复杂曲线。', 8.25, 3.22, 3.45, C.teal, 18, { align: 'center', bold: true, h: 0.62 });
-  label(s, '模型因此可以“弯着理解”现实，而不是只会画直线。', 7.55, 5.62, 4.2, C.muted, 12, { align: 'center', h: 0.28 });
-  card(s, 2.28, 6.36, 8.75, 0.5, { fill: C.indigo, line: C.indigo });
-  s.addText('线性层负责组合信息；激活函数打破线性限制；多层组合才有复杂表达能力。', { x: 2.48, y: 6.51, w: 8.35, h: 0.17, fontFace: FONT.body, fontSize: 13.5, bold: true, color: C.white, align: 'center', margin: 0, fit: 'shrink' });
-  addFooter(s, 6);
-  addNotes(s, '可以用“画地图”类比：只有直尺，能画的边界很有限；有了折点和弯路，模型才有机会描述复杂问题。激活函数提供表达能力，但不保证模型就一定学会。');
-}
-
-// 07 — network structure
-{
-  const s = pptx.addSlide(); addBg(s); addTitle(s, '网络结构 = 分工设计：很多简单层协作，才描述复杂问题', '06 · 网络结构');
-  s.addText('像一条流水线：深度是工序，宽度是每道工序的人手。结构决定“先看什么，再组合什么”。', { x: 0.78, y: 1.4, w: 11.6, h: 0.34, fontFace: FONT.body, fontSize: 16, color: C.ink, margin: 0, fit: 'shrink' });
-  const cols = [
-    { x: 0.85, title: '输入', sub: '像素 / 词 / 数值', color: C.ice, h: 1.0 },
-    { x: 3.15, title: '局部线索', sub: '边缘 / 关键词', color: C.teal, h: 1.6 },
-    { x: 5.45, title: '组合特征', sub: '形状 / 短语', color: C.indigo, h: 2.18 },
-    { x: 7.75, title: '任务判断', sub: '分类 / 生成', color: C.coral, h: 2.75 }
-  ];
-  cols.forEach((it, i) => {
-    const y = 4.72 - it.h;
-    card(s, it.x, y, 1.72, it.h, { fill: C.white, line: it.color, lineWidth: 1.6, shadow: true });
-    dot(s, it.x + 0.65, y + 0.22, 0.42, it.color);
-    label(s, String(i + 1), it.x + 0.65, y + 0.31, 0.42, C.white, 13, { align: 'center', bold: true });
-    label(s, it.title, it.x + 0.16, y + it.h - 0.76, 1.4, C.ink, 16, { bold: true, align: 'center' });
-    label(s, it.sub, it.x + 0.12, y + it.h - 0.43, 1.48, C.muted, 11, { align: 'center' });
-    if (i < cols.length - 1) arrow(s, it.x + 1.82, y + it.h - 0.56, 0.38, 0.28, C.line);
-  });
-  // parallel and skip connections mini diagrams
-  card(s, 10.0, 1.9, 2.65, 1.28, { fill: C.pale, line: C.line });
-  label(s, '并联：从多个角度看', 10.22, 2.12, 2.2, C.indigo, 13, { bold: true, align: 'center' });
-  [2.48, 2.77, 3.06].forEach((y, i) => { dot(s, 10.35, y, 0.12, [C.ice, C.teal, C.coral][i]); line(s, 10.48, y + 0.06, 11.1, 2.77, [C.ice, C.teal, C.coral][i], 1.2); }); dot(s, 11.1, 2.68, 0.18, C.indigo);
-  card(s, 10.0, 3.45, 2.65, 1.28, { fill: C.pale, line: C.line });
-  label(s, '跳跃：让原信息直达', 10.22, 3.68, 2.2, C.indigo, 13, { bold: true, align: 'center' });
-  line(s, 10.35, 4.37, 11.08, 4.05, C.teal, 1.8, 'solid', 'none', 'triangle'); line(s, 10.35, 3.89, 11.08, 4.05, C.coral, 1.8, 'solid', 'none', 'triangle'); dot(s, 11.03, 3.93, 0.24, C.indigo);
-  s.addText('不是越大越好：容量、数据、成本和泛化要匹配。', { x: 0.92, y: 6.1, w: 8.7, h: 0.3, fontFace: FONT.body, fontSize: 16, bold: true, color: C.indigo, margin: 0 });
-  addFooter(s, 7);
-  addNotes(s, '网络结构就是“分工设计”。串联负责逐层抽象，并联负责多视角，跳跃连接负责保留原信息。企业不要只问模型多大，要问结构是否匹配任务。');
-}
-
-// 08 — Transformer
-{
-  const s = pptx.addSlide(); addBg(s, C.navy); addTitle(s, 'Transformer：让每个词先问“我该关注谁？”', '07 · 上下文', true);
-  s.addText('传统按顺序读，长句容易忘；Transformer 用注意力让每个词都能回头看上下文。', { x: 0.78, y: 1.44, w: 11.7, h: 0.34, fontFace: FONT.body, fontSize: 16, color: C.darkMuted, margin: 0 });
+  const s = pptx.addSlide(); addBg(s, C.navy); addTitle(s, 'Transformer：让每个词计算“我该参考谁”', '05 · 注意力', true);
+  s.addText('句子：小明把书放进抽屉，因为它太重。这里“它”需要回看上下文。', { x: 0.78, y: 1.5, w: 11.7, h: 0.34, fontFace: FONT.body, fontSize: 16, color: C.darkMuted, margin: 0 });
   const toks = ['小明', '把', '书', '放进', '抽屉', '因为', '它', '太重'];
-  const xs = [0.82, 2.05, 2.9, 3.78, 5.1, 6.5, 7.7, 8.72];
-  toks.forEach((t, i) => { const emph = t === '它'; s.addShape(pptx.ShapeType.roundRect, { x: xs[i], y: 3.0, w: t.length > 1 ? 0.9 : 0.62, h: 0.52, rectRadius: 0.12, fill: { color: emph ? C.coral : C.indigo }, line: { color: emph ? C.coral : C.ice, transparency: emph ? 0 : 35, width: 1.1 } }); label(s, t, xs[i], 3.16, t.length > 1 ? 0.9 : 0.62, C.white, 15, { align: 'center', bold: emph }); });
-  // attention lines
-  line(s, 8.0, 2.96, 3.35, 2.96, C.coral, 3.0, 'solid', 'none', 'triangle');
-  line(s, 8.0, 2.86, 5.55, 2.86, C.amber, 1.7, 'solid', 'none', 'triangle');
-  line(s, 8.0, 2.76, 1.45, 2.76, C.ice, 1.1, 'solid', 'none', 'triangle');
-  label(s, '“它”更该关注“书”', 8.35, 2.18, 2.25, C.coral, 14, { bold: true });
-  card(s, 0.82, 4.35, 3.52, 1.35, { fill: C.indigo, line: C.ice, lineWidth: 1.2 });
-  label(s, 'Q · Query', 1.07, 4.65, 1.2, C.ice, 15, { bold: true });
-  label(s, '我在找什么？', 1.07, 5.08, 2.7, C.white, 15, { bold: true });
-  card(s, 4.62, 4.35, 3.52, 1.35, { fill: C.indigo, line: C.teal, lineWidth: 1.2 });
-  label(s, 'K · Key', 4.87, 4.65, 1.2, C.mint, 15, { bold: true });
-  label(s, '谁和我最匹配？', 4.87, 5.08, 2.7, C.white, 15, { bold: true });
-  card(s, 8.42, 4.35, 3.52, 1.35, { fill: C.indigo, line: C.coral, lineWidth: 1.2 });
-  label(s, 'V · Value', 8.67, 4.65, 1.2, C.coral, 15, { bold: true });
-  label(s, '对方带来什么信息？', 8.67, 5.08, 2.9, C.white, 15, { bold: true });
-  s.addText('Q 与 K 打分 → softmax 变成关注比例 → 按比例汇总 V', { x: 0.95, y: 5.91, w: 11.4, h: 0.22, fontFace: FONT.body, fontSize: 12.5, color: C.amber, align: 'center', bold: true, margin: 0, fit: 'shrink' });
-  s.addText('位置 → 因果多头注意力（Q/K/V）→ 残差/归一化 → FFN（线性+激活）→ 重复多层', { x: 0.82, y: 6.25, w: 11.7, h: 0.25, fontFace: FONT.body, fontSize: 12.5, color: C.ice, align: 'center', bold: true, margin: 0, fit: 'shrink' });
-  addFooter(s, 8, true);
-  addNotes(s, 'Transformer 的关键不是“更聪明”，而是更擅长处理上下文。注意力可以理解为：每个词都在决定自己应该参考哪些词。Q/K/V 是“我在找什么、谁匹配、对方带来什么”。');
+  toks.forEach((t, i) => { const x = 0.95 + i * 1.02; const emph = t === '它'; card(s, x, 2.35, 0.82, 0.5, { fill: emph ? C.coral : C.indigo, line: emph ? C.coral : C.ice, lineWidth: 1 }); label(s, t, x, 2.5, 0.82, C.white, 14, { align: 'center', bold: emph }); });
+  label(s, '“它”', 7.08, 3.02, 0.82, C.coral, 15, { align: 'center', bold: true });
+  const refs = [['书', '0.70', C.coral], ['抽屉', '0.12', C.amber], ['太重', '0.10', C.ice], ['其他', '0.08', C.teal]];
+  refs.forEach((it, i) => { const y = 3.45 + i * 0.42; label(s, it[0], 5.25, y, 0.75, C.white, 12, { align: 'right', bold: true }); s.addShape(pptx.ShapeType.roundRect, { x: 6.2, y: y + 0.06, w: 2.55 * Number(it[1]), h: 0.16, rectRadius: 0.08, fill: { color: it[2] }, line: { color: it[2] } }); label(s, it[1], 8.95, y, 0.55, it[2], 11, { bold: true }); });
+  card(s, 9.7, 3.14, 2.75, 1.75, { fill: C.indigo, line: C.ice, lineWidth: 1.2 });
+  label(s, 'Q · 我在找什么', 9.95, 3.42, 2.2, C.ice, 13, { bold: true });
+  label(s, 'K · 谁最匹配', 9.95, 3.82, 2.2, C.mint, 13, { bold: true });
+  label(s, 'V · 带来什么信息', 9.95, 4.22, 2.2, C.coral, 13, { bold: true });
+  s.addText('Q 与 K 打分 → softmax 变成比例 → 按比例汇总 V', { x: 1.1, y: 5.7, w: 11.0, h: 0.28, fontFace: FONT.body, fontSize: 15, color: C.amber, align: 'center', bold: true, margin: 0 });
+  addFooter(s, 6, true); addNotes(s, '点击节奏：先出现句子，再强调“它”，最后出现权重和 Q/K/V。注意力不是人工写好的语法表，而是模型通过训练学会的匹配计算。');
 }
 
-// 09 — GPT
+// 07 — Transformer block
 {
-  const s = pptx.addSlide(); addBg(s); addTitle(s, 'GPT：每次只猜下一个词，却能写成一段话', '08 · 生成模型');
-  s.addText('GPT = Generative Pre-trained Transformer：先学语言的统计规律，再按要求逐 token（文字片段）接龙。', { x: 0.78, y: 1.43, w: 11.6, h: 0.32, fontFace: FONT.body, fontSize: 15.5, color: C.ink, margin: 0, fit: 'shrink' });
-  card(s, 0.78, 2.0, 7.25, 3.82, { fill: C.white, line: C.line, shadow: true });
-  pill(s, '预训练 → 对齐 → 逐 token 生成', 1.08, 2.3, 2.55, C.navy, C.ice, 11.5);
-  label(s, '对齐 = 学会按要求回答、守规则，不等于把新知识写进脑子。', 1.08, 2.72, 5.55, C.indigo, 12, { bold: true });
-  const seq = ['客户投诉：', '鞋底', '开胶，', '建议', '先'];
-  seq.forEach((t, i) => { const x = 1.08 + i * 1.12; s.addShape(pptx.ShapeType.roundRect, { x, y: 3.17, w: 0.98, h: 0.52, rectRadius: 0.1, fill: { color: i === seq.length - 1 ? C.coral : C.pale }, line: { color: i === seq.length - 1 ? C.coral : C.line } }); label(s, t, x, 3.33, 0.98, i === seq.length - 1 ? C.white : C.ink, 13, { align: 'center', bold: i === seq.length - 1 }); if (i < seq.length - 1) arrow(s, x + 1.0, 3.31, 0.24, 0.22, C.line); });
-  label(s, '候选 token 概率（仅展示部分）：', 1.1, 4.14, 3.0, C.muted, 13, { bold: true });
-  const cand = [['给', '0.42', C.teal], ['建议', '0.28', C.ice], ['联系', '0.16', C.amber], ['直接', '0.08', C.coral]];
-  cand.forEach((it, i) => { const y = 4.58 + i * 0.3; label(s, it[0], 1.25, y, 0.55, C.ink, 12, { bold: true }); s.addShape(pptx.ShapeType.roundRect, { x: 2.0, y: y + 0.04, w: 3.2 * Number(it[1]), h: 0.13, rectRadius: 0.06, fill: { color: it[2] }, line: { color: it[2] } }); label(s, it[1], 5.55, y, 0.55, C.muted, 11, { align: 'right' }); });
-  card(s, 8.45, 2.0, 4.05, 3.82, { fill: C.indigo, line: C.indigo, shadow: true });
-  label(s, '上下文窗口', 8.82, 2.38, 2.8, C.ice, 16, { bold: true });
-  label(s, '参数是长期学到的经验；\n桌面是这次能直接参考的材料。\n未提供的私有 / 最新资料，不能可靠推断。', 8.82, 2.95, 3.05, C.white, 14.5, { bold: true, h: 1.0 });
-  s.addShape(pptx.ShapeType.roundRect, { x: 8.82, y: 4.1, w: 3.1, h: 0.72, rectRadius: 0.12, fill: { color: C.navy }, line: { color: C.ice, transparency: 35 } });
-  label(s, '温度 ↑ = 更发散\n温度 ↓ = 更稳定', 9.0, 4.28, 2.7, C.ice, 13, { align: 'center', bold: true, h: 0.38 });
-  s.addText('流畅度很高 ≠ 事实一定正确。每一步都从概率分布按策略选一个 token：可以选最高，也可以采样。', { x: 0.95, y: 6.3, w: 11.35, h: 0.34, fontFace: FONT.body, fontSize: 15.5, bold: true, color: C.coral, align: 'center', margin: 0, fit: 'shrink' });
-  addFooter(s, 9);
-  addNotes(s, 'GPT 的训练目标是预测下一个 token，生成时通常一步一步解码。因果遮罩保证当前位置只看已经出现的内容；温度主要改变抽样随机性，不会增加事实知识或纠错能力。');
+  const s = pptx.addSlide(); addBg(s); addTitle(s, 'Transformer 的一层：先交换信息，再加工表示', '06 · 架构');
+  const blocks = [['token + 位置', '顺序信息', C.ice], ['多头注意力', '跨位置交换信息', C.teal], ['残差 + 归一化', '保留并稳定信号', C.indigo], ['前馈网络', '逐位置非线性加工', C.coral], ['重复多层', '形成上下文表示', C.amber]];
+  blocks.forEach((it, i) => { const x = 0.7 + i * 2.5; card(s, x, 2.25, 2.08, 2.0, { fill: C.white, line: it[2], lineWidth: 1.5, shadow: true }); dot(s, x + 0.84, 2.55, 0.38, it[2]); label(s, String(i + 1), x + 0.84, 2.63, 0.38, C.navy, 12, { align: 'center', bold: true }); label(s, it[0], x + 0.16, 3.16, 1.76, C.ink, 15, { align: 'center', bold: true }); label(s, it[1], x + 0.15, 3.67, 1.78, C.muted, 11.5, { align: 'center', h: 0.35 }); if (i < blocks.length - 1) arrow(s, x + 2.13, 3.05, 0.3, 0.22, C.line); });
+  card(s, 2.25, 5.15, 8.85, 0.78, { fill: C.indigo, line: C.indigo });
+  label(s, '注意力负责“位置之间互相看”，FFN 负责“每个位置自己加工”。', 2.55, 5.41, 8.25, C.white, 16, { align: 'center', bold: true });
+  label(s, '训练时可以并行处理已知序列；生成时仍要一个 token 接一个 token。', 1.1, 6.35, 11.0, C.muted, 14, { align: 'center', bold: true });
+  addFooter(s, 7); addNotes(s, 'Transformer 不是只有注意力。完整一层还包括位置处理、残差、归一化和前馈网络。用这一页把部件关系讲完整。');
 }
 
-// 10 — RSI
+// 08 — GPT versus Transformer
 {
-  const s = pptx.addSlide(); addBg(s, C.pale); addTitle(s, 'RSI：AI 参与改进“造 AI 的流程”', '09 · 前沿方向', false);
-  pill(s, 'Recursive Self-Improvement · 递归自我改进', 0.78, 1.38, 3.2, C.navy, C.amber, 11);
-  label(s, '这是研究方向，不是企业可以直接放开的“无限自我进化”。', 4.2, 1.46, 6.3, C.muted, 13);
-  // loop nodes
-  const loop = [
-    { x: 1.2, y: 3.0, title: '发现弱点', sub: '哪里总出错？', c: C.ice },
-    { x: 4.0, y: 2.02, title: '提方案', sub: '生成数据 / 代码', c: C.teal },
-    { x: 7.35, y: 2.02, title: '跑实验', sub: '在沙盒里验证', c: C.indigo },
-    { x: 10.15, y: 3.0, title: '评估更新', sub: '指标更好才保留', c: C.coral }
-  ];
-  loop.forEach((it) => { s.addShape(pptx.ShapeType.ellipse, { x: it.x, y: it.y, w: 1.55, h: 1.55, fill: { color: it.c }, line: { color: C.white, width: 1.2 } }); label(s, it.title, it.x + 0.08, it.y + 0.47, 1.39, C.white, 16, { align: 'center', bold: true }); label(s, it.sub, it.x + 0.12, it.y + 0.95, 1.31, C.white, 10, { align: 'center', h: 0.26 }); });
-  line(s, 2.75, 3.72, 4.1, 3.0, C.teal, 2.1, 'solid', 'none', 'triangle');
-  line(s, 5.55, 2.77, 7.3, 2.77, C.teal, 2.1, 'solid', 'none', 'triangle');
-  line(s, 8.9, 3.0, 10.1, 3.72, C.teal, 2.1, 'solid', 'none', 'triangle');
-  line(s, 10.15, 4.65, 2.0, 4.65, C.amber, 2, 'dash', 'none', 'triangle');
-  label(s, '下一轮用已通过评估的版本继续迭代', 4.75, 4.78, 3.9, C.amber, 12, { align: 'center', bold: true });
-  card(s, 2.32, 5.65, 8.75, 0.62, { fill: C.white, line: C.amber, lineWidth: 1.3 });
-  s.addText('企业今天能借鉴的是“有界自我改进”：固定指标 + 沙盒权限 + 人审批 + 可回滚；聊天反馈不会自动改写基础模型权重。', { x: 2.48, y: 5.78, w: 8.45, h: 0.28, fontFace: FONT.body, fontSize: 13.5, bold: true, color: C.indigo, align: 'center', margin: 0, fit: 'shrink' });
-  addFooter(s, 10);
-  addNotes(s, '这里的 RSI 按 Recursive Self-Improvement 解释。企业可做的是让 AI 帮忙生成测试、数据和改进方案，但必须由固定外部指标、独立留出集、沙盒、权限、人审批和回滚机制来约束。改进代码、工具或数据不等于基础模型权重自动更新，也不保证能力无限增长。');
+  const s = pptx.addSlide(); addBg(s, C.pale); addTitle(s, 'GPT 相对 Transformer：进步主要在“选择 + 训练 + 规模化”', '07 · GPT');
+  card(s, 0.8, 1.75, 5.5, 4.55, { fill: C.white, line: C.line, shadow: true });
+  pill(s, 'Transformer：架构家族', 1.1, 2.08, 2.0, C.indigo, C.white, 12);
+  const tr = [['结构', '可以是编码器、解码器，或两者组合'], ['注意力', '让位置之间交换上下文信息'], ['原始论文', '主要验证序列转换与机器翻译']];
+  tr.forEach((it, i) => { const y = 2.85 + i * 0.72; label(s, it[0], 1.12, y, 0.7, C.indigo, 13, { bold: true }); label(s, it[1], 2.0, y, 3.85, C.muted, 13, { h: 0.38 }); });
+  card(s, 6.95, 1.75, 5.55, 4.55, { fill: C.indigo, line: C.indigo, shadow: true });
+  pill(s, 'GPT：一套生成式配方', 7.25, 2.08, 1.95, C.coral, C.white, 12);
+  const gp = [['结构选择', 'decoder-only + causal mask'], ['训练目标', '大规模 next-token prediction'], ['工程放大', '数据、参数、算力和并行训练一起扩展'], ['对齐产品', '指令训练、偏好反馈、工具与对话状态']];
+  gp.forEach((it, i) => { const y = 2.78 + i * 0.65; dot(s, 7.28, y + 0.06, 0.18, [C.ice, C.teal, C.amber, C.coral][i]); label(s, it[0], 7.65, y, 1.2, C.white, 12.5, { bold: true }); label(s, it[1], 8.95, y, 2.95, C.darkMuted, 12.5, { h: 0.35 }); });
+  s.addText('准确说：GPT 不是“发明了另一种注意力”，而是把 Transformer 的生成子结构与预训练、规模化和对齐组合成了可泛化的语言模型路线。', { x: 1.0, y: 6.45, w: 11.25, h: 0.35, fontFace: FONT.body, fontSize: 14.5, color: C.indigo, bold: true, align: 'center', margin: 0, fit: 'shrink' });
+  addFooter(s, 8); addNotes(s, '用户要求讲清 GPT 相对于 Transformer 的进步。要避免说成“GPT 改进了注意力公式”：Transformer 是架构家族，GPT 的关键贡献是采用 decoder-only 因果生成结构，并配合 next-token 预训练、规模化训练和后续对齐，做成可通用的生成模型路线。');
 }
 
-// 11 — Limits
+// 09 — GPT generation
 {
-  const s = pptx.addSlide(); addBg(s); addTitle(s, 'AI 的边界：会说 ≠ 说得对', '10 · 局限性');
-  s.addText('模型越流畅，越需要把“能不能核验”写进流程。', { x: 0.78, y: 1.4, w: 5.3, h: 0.3, fontFace: FONT.body, fontSize: 16, color: C.ink, bold: true, margin: 0 });
-  const cards = [
-    ['幻觉', '把猜测说成事实', '放大镜', C.coral],
-    ['过时', '训练没覆盖新信息', '时钟', C.amber],
-    ['脆弱', '换个问法就失灵', '裂缝', C.teal],
-    ['偏差 / 安全', '数据偏见、注入、泄漏', '盾牌', C.indigo]
-  ];
-  cards.forEach((it, i) => { const x = 0.8 + (i % 2) * 3.1; const y = 2.05 + Math.floor(i / 2) * 1.75; card(s, x, y, 2.72, 1.34, { fill: C.white, line: it[3], lineWidth: 1.5, shadow: true }); dot(s, x + 0.22, y + 0.23, 0.42, it[3]); label(s, String(i + 1), x + 0.22, y + 0.33, 0.42, C.white, 12, { align: 'center', bold: true }); label(s, it[0], x + 0.82, y + 0.23, 1.55, C.ink, 16, { bold: true }); label(s, it[1], x + 0.82, y + 0.68, 1.55, C.muted, 12, { h: 0.34 }); });
-  card(s, 7.15, 2.0, 5.25, 3.9, { fill: C.indigo, line: C.indigo, shadow: true });
-  label(s, '可靠性三角', 7.53, 2.38, 2.1, C.ice, 17, { bold: true });
-  const cx = 9.82, cy = 4.25;
-  s.addShape(pptx.ShapeType.triangle, { x: 8.42, y: 3.05, w: 2.8, h: 2.3, rotate: 0, fill: { color: C.navy, transparency: 20 }, line: { color: C.ice, width: 1.2 } });
-  dot(s, cx - 0.14, 3.25, 0.28, C.mint); dot(s, 8.55, 5.07, 0.28, C.amber); dot(s, 11.0, 5.07, 0.28, C.coral);
-  label(s, '正确', 9.62, 2.95, 0.6, C.mint, 12, { bold: true, align: 'center' }); label(s, '速度', 8.05, 5.38, 0.6, C.amber, 12, { bold: true, align: 'center' }); label(s, '成本', 11.07, 5.38, 0.6, C.coral, 12, { bold: true, align: 'center' });
-  label(s, '通常要在三者之间做取舍，\n而不是同时拉满。', 8.28, 3.9, 3.15, C.white, 16, { align: 'center', bold: true, h: 0.58 });
-  s.addText('关键结果必须可核验、可追责：让 AI 先做草稿和分析，人保留最后判断。', { x: 0.95, y: 6.3, w: 11.3, h: 0.32, fontFace: FONT.body, fontSize: 16, bold: true, color: C.indigo, align: 'center', margin: 0, fit: 'shrink' });
-  addFooter(s, 11);
-  addNotes(s, '用四个词把局限讲清：幻觉、过时、脆弱、偏差与安全。可靠性三角表示在同一任务与资源约束下，准确率、速度、成本通常需要取舍；缓存、批处理和模型组合可以改变这个平衡。');
+  const s = pptx.addSlide(); addBg(s); addTitle(s, 'GPT 怎样生成一段话：每一步都只决定下一个 token', '08 · 自回归生成');
+  label(s, '提示词：客户投诉鞋底开胶，', 0.85, 1.65, 3.7, C.indigo, 17, { bold: true });
+  const seq = ['建议', '先', '拍照', '并', '保留'];
+  seq.forEach((t, i) => { const x = 0.95 + i * 1.32; card(s, x, 2.25, 1.05, 0.6, { fill: i === 0 ? C.coral : C.pale, line: i === 0 ? C.coral : C.line }); label(s, t, x, 2.45, 1.05, i === 0 ? C.white : C.ink, 15, { align: 'center', bold: true }); if (i < seq.length - 1) arrow(s, x + 1.1, 2.45, 0.27, 0.2, C.line); });
+  label(s, '当前前缀', 0.95, 3.15, 1.1, C.muted, 12, { bold: true });
+  const cand = [['建议', '42%', C.teal], ['联系', '28%', C.ice], ['直接', '16%', C.amber], ['其他', '14%', C.coral]];
+  cand.forEach((it, i) => { const y = 3.58 + i * 0.42; label(s, it[0], 1.45, y, 0.62, C.ink, 12, { bold: true }); s.addShape(pptx.ShapeType.roundRect, { x: 2.25, y: y + 0.06, w: 3.2 * Number(it[1].replace('%', '')) / 42, h: 0.17, rectRadius: 0.08, fill: { color: it[2] }, line: { color: it[2] } }); label(s, it[1], 5.7, y, 0.55, it[2], 11, { bold: true }); });
+  card(s, 7.25, 1.65, 5.2, 3.95, { fill: C.indigo, line: C.indigo, shadow: true });
+  label(s, '一次生成的真实过程', 7.58, 2.0, 3.0, C.ice, 17, { bold: true });
+  const gen = [['1', '处理提示词', 'token → embedding → Transformer'], ['2', '选择下一个 token', '贪心、采样、温度等策略'], ['3', '追加到上下文', '把“建议”放回输入'], ['4', '继续下一步', '直到结束或达到长度限制']];
+  gen.forEach((it, i) => { const y = 2.72 + i * 0.62; dot(s, 7.62, y + 0.03, 0.26, [C.ice, C.teal, C.amber, C.coral][i]); label(s, it[0], 7.62, y + 0.08, 0.26, C.navy, 10, { align: 'center', bold: true }); label(s, it[1], 8.05, y, 1.2, C.white, 13, { bold: true }); label(s, it[2], 9.35, y, 2.65, C.darkMuted, 11.5, { h: 0.32 }); });
+  label(s, '上下文是“这次能直接参考的桌面”，参数是长期训练得到的能力。', 1.0, 6.18, 11.2, C.indigo, 15, { align: 'center', bold: true });
+  addFooter(s, 9); addNotes(s, 'GPT 生成不是一次性写完整答案，而是每步预测一个 token，再把它追加到上下文。可以点击逐步讲解；本页的条形是教学示意，不是实际模型输出。');
 }
 
-// 12 — Cost
+// 10 — Context limits
 {
-  const s = pptx.addSlide(); addBg(s, C.pale); addTitle(s, '成本不是只有“买模型”：真正贵的是整条链路', '11 · 成本');
-  s.addText('估算公式：调用次数 ×（输入 token×输入单价 + 输出 token×输出单价）+ 训练/微调 + 数据/集成/人工 + 错误成本。', { x: 0.78, y: 1.42, w: 11.6, h: 0.34, fontFace: FONT.body, fontSize: 14.5, color: C.ink, bold: true, margin: 0, fit: 'shrink' });
-  const costItems = [
-    ['训练 / 微调', '需要时才发生的算力和实验', C.indigo, 2.7],
-    ['推理', '每次调用、长上下文、并发', C.coral, 3.2],
-    ['数据', '清洗、标注、知识库', C.teal, 2.45],
-    ['集成', '权限、监控、评测、上线', C.indigo, 2.1],
-    ['人工', '复核、运营、培训', C.amber, 1.6],
-    ['错误', '返工、合规、客户损失', C.red, 2.85]
-  ];
-  costItems.forEach((it, i) => { const y = 2.15 + i * 0.58; label(s, it[0], 0.95, y + 0.08, 0.82, C.ink, 12.5, { bold: true }); s.addShape(pptx.ShapeType.roundRect, { x: 1.9, y, w: it[3], h: 0.3, rectRadius: 0.11, fill: { color: it[2] }, line: { color: it[2] } }); label(s, it[1], 5.35, y + 0.08, 3.2, C.muted, 11.5); });
-  label(s, '条形长度只是成本项示意，不代表实际占比。', 1.0, 5.72, 6.4, C.muted, 11, { italic: true });
-  card(s, 8.98, 2.15, 3.45, 3.64, { fill: C.white, line: C.line, shadow: true });
-  label(s, '按任务匹配工具', 9.3, 2.5, 2.8, C.indigo, 18, { bold: true, align: 'center' });
-  const toolRows = [
-    ['规则', '稳定、便宜', C.teal],
-    ['小模型', '固定、高频、低风险', C.ice],
-    ['大模型', '复杂 / 不确定，先算单位成本', C.coral],
-    ['人工', '高风险、不可错', C.amber]
-  ];
-  toolRows.forEach((it, i) => { const y = 3.15 + i * 0.52; dot(s, 9.45, y + 0.06, 0.18, it[2]); label(s, it[0], 9.76, y, 0.72, C.ink, 13, { bold: true }); label(s, it[1], 10.6, y, 1.45, C.muted, 12); });
-  s.addText('先算单位经济性，再扩张调用量。', { x: 1.2, y: 6.1, w: 11.0, h: 0.32, fontFace: FONT.body, fontSize: 17, bold: true, color: C.indigo, align: 'center', margin: 0 });
-  addFooter(s, 12);
-  addNotes(s, '企业容易漏算三笔钱：数据准备、集成治理、错误代价。用“任务—工具匹配”可以避免用最贵的模型处理最简单的问题。');
+  const s = pptx.addSlide(); addBg(s, C.navy); addTitle(s, '上下文窗口为什么有限：算力、缓存、位置和有效利用都在约束它', '09 · Transformer 局限', true);
+  const cards = [['注意力计算', 'n 个 token 的全注意力约有 n² 个位置配对。长度翻倍，配对约变四倍。', C.coral], ['KV cache', '历史 K/V 会复用，但 token 越长，缓存越大；生成每一步仍要访问历史。', C.amber], ['位置泛化', '能算出更远的位置，不代表模型训练过这种距离，更不代表一定用得好。', C.ice], ['有效利用', '资料放进窗口后，模型仍可能漏掉中间证据、多个条件或远处关系。', C.mint]];
+  cards.forEach((it, i) => { const x = 0.8 + (i % 2) * 6.15; const y = 1.85 + Math.floor(i / 2) * 2.15; card(s, x, y, 5.45, 1.65, { fill: C.indigo, line: it[2], lineWidth: 1.3 }); dot(s, x + 0.3, y + 0.32, 0.36, it[2]); label(s, String(i + 1), x + 0.3, y + 0.4, 0.36, C.navy, 12, { align: 'center', bold: true }); label(s, it[0], x + 0.88, y + 0.23, 2.2, C.white, 16, { bold: true }); label(s, it[1], x + 0.88, y + 0.72, 4.1, C.darkMuted, 12.5, { h: 0.58 }); });
+  s.addText('“支持更长输入”不等于“无限记忆”，也不等于“所有证据都能可靠综合”。', { x: 1.0, y: 6.45, w: 11.3, h: 0.3, fontFace: FONT.body, fontSize: 15.5, color: C.amber, bold: true, align: 'center', margin: 0 });
+  addFooter(s, 10, true); addNotes(s, '这一页把上下文限制拆成四个独立原因。FlashAttention 可以优化内存访问，但不会让标准稠密注意力的配对计算、KV cache 和有效利用问题消失。');
 }
 
-// 13 — scenario matrix
+// 11 — Why RSI
 {
-  const s = pptx.addSlide(); addBg(s); addTitle(s, '企业选场景：先看重复度，再看可控性', '12 · 场景选择');
-  label(s, '优先高频、可量化、可复核、数据已经存在的任务。', 0.8, 1.4, 6.2, C.ink, 16, { bold: true });
-  // axes and quadrants
-  const x0 = 2.1, y0 = 2.05, w = 8.9, h = 3.7;
+  const s = pptx.addSlide(); addBg(s); addTitle(s, '为什么需要 RSI：单次改进太慢，人工试错无法覆盖所有环节', '10 · RSI 的动机');
+  label(s, '先看痛点，再看闭环。RSI 是对迭代瓶颈的工程回应。', 0.8, 1.56, 11.8, C.ink, 15.5, { bold: true });
+  const pain = [['模型参数静态', '训练结束后，系统不会因为一次失败自动重写自己。', C.coral], ['人工迭代慢', '数据、提示、代码、评测常由人逐项试错。', C.amber], ['历史越来越长', '实验记录在外部，但每次能读到的上下文有限。', C.ice], ['改进难以验证', '一个分数变好，不代表真实任务和旧能力都变好。', C.teal]];
+  pain.forEach((it, i) => { const x = 0.8 + (i % 2) * 3.55; const y = 2.35 + Math.floor(i / 2) * 1.45; card(s, x, y, 3.1, 1.05, { fill: C.white, line: it[2], lineWidth: 1.4, shadow: true }); label(s, it[0], x + 0.2, y + 0.16, 2.55, C.indigo, 15, { bold: true }); label(s, it[1], x + 0.2, y + 0.52, 2.65, C.muted, 10.5, { h: 0.34 }); });
+  arrow(s, 7.35, 3.62, 0.6, 0.35, C.coral);
+  card(s, 8.25, 2.35, 4.25, 2.95, { fill: C.indigo, line: C.indigo, shadow: true });
+  label(s, '需要一个持续改进闭环', 8.6, 2.75, 3.55, C.white, 20, { bold: true, align: 'center' });
+  const needs = ['发现弱点', '提出候选改动', '实际跑实验', '外部评估后保留'];
+  needs.forEach((t, i) => { const y = 3.38 + i * 0.48; dot(s, 8.86, y + 0.05, 0.16, [C.ice, C.teal, C.amber, C.coral][i]); label(s, t, 9.2, y, 2.6, C.darkMuted, 13, { bold: true }); });
+  label(s, '通过评估的版本进入下一轮，成为下一轮改进的基础。', 1.2, 6.35, 10.7, C.indigo, 15.5, { align: 'center', bold: true });
+  addFooter(s, 11); addNotes(s, 'RSI 前先讲为什么需要它：模型静态、人工试错慢、上下文和实验历史有限、评估不容易。RSI 试图把发现问题、提出改动、实验和筛选纳入持续循环。');
+}
+
+// 12 — RSI loop
+{
+  const s = pptx.addSlide(); addBg(s, C.pale); addTitle(s, 'RSI：把“发现问题 → 验证改动”变成受控循环', '11 · RSI 原理');
+  const nodes = [{ x: 0.95, y: 3.2, t: '发现弱点', sub: '失败日志 / 评测', c: C.ice }, { x: 3.6, y: 2.15, t: '提出改动', sub: '代码 / 数据 / 策略', c: C.teal }, { x: 6.55, y: 2.15, t: '沙盒实验', sub: '固定预算执行', c: C.indigo }, { x: 9.45, y: 3.2, t: '外部评估', sub: '留出任务 + 回归', c: C.coral }];
+  nodes.forEach((it, i) => { s.addShape(pptx.ShapeType.ellipse, { x: it.x, y: it.y, w: 1.65, h: 1.65, fill: { color: it.c }, line: { color: C.white, width: 1.2 } }); label(s, it.t, it.x + 0.1, it.y + 0.48, 1.45, C.white, 16, { align: 'center', bold: true }); label(s, it.sub, it.x + 0.1, it.y + 1.0, 1.45, C.white, 10.5, { align: 'center', h: 0.28 }); if (i < nodes.length - 1) line(s, it.x + 1.65, it.y + 0.8, nodes[i + 1].x, nodes[i + 1].y + 0.8, C.teal, 2.4, 'solid', 'triangle'); });
+  line(s, 10.25, 4.9, 2.0, 4.9, C.amber, 2.2, 'dash', 'triangle');
+  label(s, '通过才保留；失败就回滚或换候选', 4.2, 5.02, 4.6, C.amber, 13, { align: 'center', bold: true });
+  card(s, 2.1, 5.75, 9.2, 0.55, { fill: C.white, line: C.line });
+  label(s, '边界：权限、沙盒、独立评估、版本记录、可回滚。改进代码不等于基础模型权重自动更新。', 2.35, 5.94, 8.7, C.indigo, 12.5, { align: 'center', bold: true });
+  addFooter(s, 12); addNotes(s, '点击节奏：四个节点依次出现，再出现回路和护栏。RSI 是工程闭环，不是一个新的神经网络层。改进对象可以是代理代码、工具、数据、模型参数或改进策略，必须说明具体改了哪一层。');
+}
+
+// 13 — Limits
+{
+  const s = pptx.addSlide(); addBg(s); addTitle(s, 'Transformer + RSI 的边界：循环变快，不等于自动变可靠', '12 · 局限性');
+  card(s, 0.8, 1.75, 5.7, 4.65, { fill: C.white, line: C.indigo, lineWidth: 1.5, shadow: true });
+  pill(s, 'Transformer 仍受限', 1.1, 2.08, 1.65, C.indigo, C.white, 12);
+  const tl = [['窗口', '输入和生成总量有限'], ['成本', '长上下文、KV cache 和注意力变贵'], ['利用', '放进去不等于找对、记牢、综合对'], ['事实', '生成流畅不等于真实正确']];
+  tl.forEach((it, i) => { const y = 2.84 + i * 0.68; dot(s, 1.13, y + 0.06, 0.18, [C.coral, C.amber, C.ice, C.teal][i]); label(s, it[0], 1.5, y, 0.65, C.indigo, 13, { bold: true }); label(s, it[1], 2.35, y, 3.45, C.muted, 12.5, { h: 0.35 }); });
+  card(s, 6.85, 1.75, 5.65, 4.65, { fill: C.indigo, line: C.indigo, shadow: true });
+  pill(s, 'RSI 仍受限', 7.15, 2.08, 1.35, C.coral, C.white, 12);
+  const rl = [['评测投机', '分数变好，不等于真实任务变好'], ['误判传播', '错误候选被接受，会进入下一轮'], ['资源成本', '候选越多，训练和验证越贵'], ['能力边界', '改代理代码不会自动扩大模型窗口']];
+  rl.forEach((it, i) => { const y = 2.84 + i * 0.68; dot(s, 7.18, y + 0.06, 0.18, [C.amber, C.coral, C.ice, C.mint][i]); label(s, it[0], 7.55, y, 0.9, C.white, 13, { bold: true }); label(s, it[1], 8.65, y, 3.25, C.darkMuted, 12.5, { h: 0.35 }); });
+  s.addText('真正的进步需要：独立评估 + 可追溯版本 + 外部事实 + 人类责任。', { x: 1.1, y: 6.62, w: 11.1, h: 0.27, fontFace: FONT.body, fontSize: 15.5, color: C.indigo, align: 'center', bold: true, margin: 0 });
+  addFooter(s, 13); addNotes(s, '这页把 Transformer 的限制和 RSI 的限制分开，避免“加一个自我改进循环就解决所有问题”的误解。尤其强调固定基础模型的 RSI 可以提高工作流，但不会自动改变窗口或模型权重。');
+}
+
+// 14 — Cost
+{
+  const s = pptx.addSlide(); addBg(s, C.pale); addTitle(s, 'AI 项目的成本：模型只是账单的一部分', '13 · 成本');
+  label(s, '真正的成本来自整条链路：数据、训练、推理、集成、人工复核和错误代价。', 0.8, 1.55, 11.8, C.ink, 15.5, { bold: true });
+  const rows = [['数据', '清洗、标注、知识库与更新', C.ice, 3.0], ['训练 / 微调', '一次性或周期性的实验算力', C.indigo, 2.35], ['推理', '输入输出 token、并发、长上下文', C.coral, 3.75], ['集成治理', '权限、监控、评测、日志和回滚', C.teal, 2.95], ['人工复核', '高风险结果需要人做最后判断', C.amber, 2.45], ['错误代价', '返工、客户损失、合规风险', C.red, 3.3]];
+  rows.forEach((it, i) => { const y = 2.18 + i * 0.58; label(s, it[0], 0.95, y + 0.06, 1.1, C.ink, 13, { bold: true }); s.addShape(pptx.ShapeType.roundRect, { x: 2.15, y, w: it[3], h: 0.28, rectRadius: 0.12, fill: { color: it[2] }, line: { color: it[2] } }); label(s, it[1], 6.25, y + 0.05, 4.9, C.muted, 12); });
+  card(s, 9.85, 2.05, 2.45, 3.72, { fill: C.white, line: C.indigo, shadow: true });
+  label(s, '先算单位经济性', 10.1, 2.45, 1.95, C.indigo, 17, { align: 'center', bold: true });
+  label(s, '每次调用成本\n× 调用次数\n+ 集成与复核\n+ 错误代价', 10.18, 3.3, 1.75, C.ink, 14, { align: 'center', bold: true, h: 1.45 });
+  label(s, '再决定是否扩大调用量。', 10.1, 5.18, 1.95, C.coral, 12, { align: 'center', bold: true });
+  addFooter(s, 14); addNotes(s, '这页保留原稿的经营视角，但把示意条明确标成成本项，不伪装成真实占比。重点是模型价格之外还有数据、治理、人工和错误成本。');
+}
+
+// 15 — Scenario matrix
+{
+  const s = pptx.addSlide(); addBg(s); addTitle(s, '企业选场景：先看重复度，再看可控性', '14 · 场景选择');
+  label(s, '优先选择高频、可量化、可复核、数据已经存在的任务。', 0.8, 1.55, 8.0, C.ink, 15.5, { bold: true });
+  const x0 = 1.85, y0 = 2.15, w = 8.95, h = 3.55;
   s.addShape(pptx.ShapeType.rect, { x: x0, y: y0, w, h, fill: { color: C.white }, line: { color: C.line, width: 1.2 } });
-  s.addShape(pptx.ShapeType.rect, { x: x0 + w / 2, y: y0, w: w / 2, h: h / 2, fill: { color: 'E8FFF5', transparency: 10 }, line: { color: 'E8FFF5', transparency: 100 } });
-  s.addShape(pptx.ShapeType.rect, { x: x0, y: y0 + h / 2, w: w / 2, h: h / 2, fill: { color: 'FFF6DD', transparency: 12 }, line: { color: 'FFF6DD', transparency: 100 } });
+  s.addShape(pptx.ShapeType.rect, { x: x0 + w / 2, y: y0, w: w / 2, h: h / 2, fill: { color: C.greenBg, transparency: 5 }, line: { color: C.greenBg, transparency: 100 } });
+  s.addShape(pptx.ShapeType.rect, { x: x0, y: y0 + h / 2, w: w / 2, h: h / 2, fill: { color: C.yellowBg, transparency: 6 }, line: { color: C.yellowBg, transparency: 100 } });
   line(s, x0 + w / 2, y0, x0 + w / 2, y0 + h, C.line, 1.1); line(s, x0, y0 + h / 2, x0 + w, y0 + h / 2, C.line, 1.1);
   label(s, '重复度高 →', x0 + w - 1.6, y0 + h + 0.2, 1.55, C.muted, 12, { align: 'right', bold: true });
-  s.addText('可控性 ↑', { x: 0.9, y: 2.82, w: 0.7, h: 0.52, fontFace: FONT.body, fontSize: 12, color: C.muted, bold: true, rotate: 270, margin: 0 });
-  label(s, '绿区：可自动化', x0 + 4.75, y0 + 0.28, 2.2, C.teal, 15, { bold: true, align: 'center' });
-  label(s, '黄区：副驾驶', x0 + 0.25, y0 + 3.12, 2.25, C.amber, 14, { bold: true, align: 'center' });
-  label(s, '红区：人做最终决定', x0 + 5.0, y0 + 2.03, 2.9, C.coral, 14, { bold: true, align: 'center' });
-  const tags = [
-    ['客服草稿', 7.05, 2.72, C.teal], ['报表摘要', 8.85, 3.15, C.teal], ['知识问答', 6.25, 3.05, C.teal],
-    ['采购预测', 3.0, 4.02, C.amber], ['质检初筛', 4.72, 4.7, C.amber], ['人事 / 财务审批', 8.35, 4.78, C.coral], ['对外承诺', 6.65, 5.2, C.coral]
-  ];
-  tags.forEach((it) => pill(s, it[0], it[1], it[2], Math.max(1.1, it[0].length * 0.22), C.navy, it[3], 10));
-  s.addText('先让 AI 做副驾驶，再根据评测结果逐步放权。', { x: 2.1, y: 6.28, w: 8.85, h: 0.3, fontFace: FONT.body, fontSize: 17, bold: true, color: C.indigo, align: 'center', margin: 0 });
-  addFooter(s, 13);
-  addNotes(s, '场景选择不要从“模型有多强”开始，而要从“任务是否重复、风险是否可控、数据是否可用”开始。高风险任务让 AI 做草稿或提醒，人做最终决定。');
+  label(s, '可控性高 ↑', x0 - 1.25, y0 + 0.05, 1.0, C.muted, 12, { bold: true });
+  label(s, '绿区：可以自动化', x0 + 4.9, y0 + 0.22, 2.5, C.teal, 15, { bold: true, align: 'center' });
+  label(s, '黄区：AI 做副驾驶', x0 + 0.55, y0 + 2.95, 2.7, C.amber, 14, { bold: true, align: 'center' });
+  label(s, '红区：人做最终决定', x0 + 5.0, y0 + 2.0, 2.9, C.coral, 14, { bold: true, align: 'center' });
+  pill(s, '客服草稿', 7.0, 2.8, 1.25, C.teal, C.navy, 10); pill(s, '报表摘要', 8.65, 3.1, 1.25, C.teal, C.navy, 10); pill(s, '知识问答', 6.25, 3.25, 1.25, C.teal, C.navy, 10);
+  pill(s, '采购预测', 2.65, 4.15, 1.25, C.amber, C.navy, 10); pill(s, '质检初筛', 4.45, 4.62, 1.25, C.amber, C.navy, 10); pill(s, '财务审批', 8.6, 4.75, 1.25, C.coral, C.navy, 10); pill(s, '对外承诺', 6.65, 5.15, 1.25, C.coral, C.navy, 10);
+  label(s, '先让 AI 做副驾驶，再根据评测结果逐步放权。', 2.1, 6.3, 8.85, C.indigo, 16, { align: 'center', bold: true });
+  addFooter(s, 15); addNotes(s, '坐标轴直接回答场景选择：重复度高、可控性高的任务优先自动化；高风险事项让 AI 做草稿、提醒或初筛，人做最终决定。');
 }
 
-// 14 — maturity path
+// 16 — Rollout
 {
-  const s = pptx.addSlide(); addBg(s, C.pale); addTitle(s, '落地路线：先做副驾驶，再做流程，再做系统', '13 · 企业落地');
-  s.addText('每一步都要有基线、有评测、有回滚；不要一开始就追求“全自动”。', { x: 0.78, y: 1.42, w: 11.5, h: 0.32, fontFace: FONT.body, fontSize: 16, color: C.ink, bold: true, margin: 0 });
-  const stairs = [
-    { x: 0.95, y: 4.92, w: 3.1, h: 0.72, n: '01', title: '副驾驶', sub: '写草稿、查资料、做摘要', c: C.ice },
-    { x: 4.35, y: 3.95, w: 3.1, h: 1.69, n: '02', title: '流程', sub: '自动分派、校验、提醒\n人保留关键节点', c: C.teal },
-    { x: 7.75, y: 2.95, w: 3.1, h: 2.69, n: '03', title: '系统', sub: '接入业务系统\n按权限行动\n持续评测与审计', c: C.indigo }
-  ];
-  stairs.forEach((it) => { s.addShape(pptx.ShapeType.roundRect, { x: it.x, y: it.y, w: it.w, h: it.h, rectRadius: 0.13, fill: { color: it.c }, line: { color: C.white, width: 1.1 } }); label(s, it.n, it.x + 0.25, it.y + 0.22, 0.55, C.navy, 15, { bold: true }); label(s, it.title, it.x + 0.92, it.y + 0.2, 1.65, C.white, 20, { bold: true }); label(s, it.sub, it.x + 0.3, it.y + 0.68, it.w - 0.6, C.white, 13, { h: it.h - 0.7 }); });
-  line(s, 1.08, 5.96, 10.7, 5.96, C.line, 1.2, 'dash');
-  ['基线 KPI', '可信数据', '离线评测', '小流量', '复盘'].forEach((t, i) => { const x = 1.12 + i * 2.35; dot(s, x, 6.24, 0.16, [C.coral, C.teal, C.indigo, C.amber, C.coral][i]); label(s, t, x + 0.25, 6.18, 1.0, C.muted, 11, { bold: true }); });
-  addFooter(s, 14);
-  addNotes(s, '落地成熟度是逐级放权，而不是一次性自动化。先从副驾驶开始建立评测基线，再把稳定的动作放进流程，最后才考虑系统级行动。');
+  const s = pptx.addSlide(); addBg(s, C.pale); addTitle(s, '落地路线：先做副驾驶，再做流程，再做系统', '15 · 企业落地');
+  label(s, '每一步都要有基线、有评测、有回滚，不要一开始就追求全自动。', 0.8, 1.55, 11.8, C.ink, 15.5, { bold: true });
+  const stages = [{ x: 0.95, y: 4.7, w: 3.1, h: 0.9, n: '01', title: '副驾驶', sub: '写草稿、查资料、做摘要', c: C.ice }, { x: 4.35, y: 3.75, w: 3.1, h: 1.85, n: '02', title: '流程', sub: '自动分派、校验、提醒\n人保留关键节点', c: C.teal }, { x: 7.75, y: 2.75, w: 3.1, h: 2.85, n: '03', title: '系统', sub: '接入业务系统\n按权限行动\n持续评测与审计', c: C.indigo }];
+  stages.forEach((it) => { s.addShape(pptx.ShapeType.roundRect, { x: it.x, y: it.y, w: it.w, h: it.h, rectRadius: 0.12, fill: { color: it.c }, line: { color: C.white, width: 1.1 } }); label(s, it.n, it.x + 0.25, it.y + 0.22, 0.55, C.navy, 15, { bold: true }); label(s, it.title, it.x + 0.92, it.y + 0.2, 1.65, C.white, 20, { bold: true }); label(s, it.sub, it.x + 0.3, it.y + 0.68, it.w - 0.6, C.white, 13, { h: it.h - 0.7 }); });
+  line(s, 1.1, 5.98, 10.7, 5.98, C.line, 1.2, 'dash');
+  ['基线 KPI', '可信数据', '离线评测', '小流量', '复盘'].forEach((t, i) => { const x = 1.12 + i * 2.35; dot(s, x, 6.27, 0.16, [C.coral, C.teal, C.indigo, C.amber, C.coral][i]); label(s, t, x + 0.25, 6.2, 1.0, C.muted, 11, { bold: true }); });
+  addFooter(s, 16); addNotes(s, '成熟度是逐级放权。先建立稳定的评测基线和复核机制，再把通过验证的动作纳入流程，最后才考虑系统级行动。');
 }
 
-// 15 — management actions
+// 17 — Management checklist
 {
-  const s = pptx.addSlide(); addBg(s); addTitle(s, '把原理变成管理动作：六个问题决定成败', '14 · 管理清单');
-  const centerX = 6.05, centerY = 3.45;
-  s.addShape(pptx.ShapeType.ellipse, { x: centerX - 1.0, y: centerY - 0.7, w: 2.0, h: 1.4, fill: { color: C.indigo }, line: { color: C.indigo } });
-  label(s, 'AI 项目', centerX - 0.72, centerY - 0.18, 1.45, C.white, 21, { align: 'center', bold: true });
-  const ring = [
-    { x: 1.0, y: 1.65, t: '选场景', sub: '哪里最重复？', c: C.ice },
-    { x: 4.0, y: 1.02, t: '给数据', sub: '它凭什么知道？', c: C.teal },
-    { x: 8.25, y: 1.02, t: '设护栏', sub: '哪些事不能做？', c: C.amber },
-    { x: 10.2, y: 3.55, t: '算 ROI', sub: '省下的钱够不够？', c: C.coral },
-    { x: 7.95, y: 5.05, t: '留人工', sub: '错了谁发现？', c: C.indigo },
-    { x: 2.1, y: 5.05, t: '复盘', sub: '数据如何变好？', c: C.mint }
-  ];
-  ring.forEach((it) => { line(s, centerX, centerY, it.x + 0.78, it.y + 0.5, C.line, 1.1, 'dash'); s.addShape(pptx.ShapeType.roundRect, { x: it.x, y: it.y, w: 1.56, h: 0.98, rectRadius: 0.12, fill: { color: it.c }, line: { color: it.c } }); label(s, it.t, it.x + 0.12, it.y + 0.2, 1.32, C.navy, 16, { align: 'center', bold: true }); label(s, it.sub, it.x + 0.08, it.y + 0.57, 1.4, C.navy, 10.5, { align: 'center' }); });
-  s.addText('把“理解原理”翻译成流程：每个 AI 项目都要能回答这六个问题。', { x: 1.3, y: 6.47, w: 10.6, h: 0.28, fontFace: FONT.body, fontSize: 16, color: C.indigo, bold: true, align: 'center', margin: 0 });
-  addFooter(s, 15);
-  addNotes(s, '这页把技术原理翻译成管理动作：没有数据就没有可靠推理，没有护栏就没有可控自动化，没有 ROI 就没有持续投入。');
+  const s = pptx.addSlide(); addBg(s); addTitle(s, '把原理变成管理动作：六个问题决定成败', '16 · 管理清单');
+  const qs = [['选场景', '哪里最重复？', C.ice], ['给数据', '它凭什么知道？', C.teal], ['设护栏', '哪些事不能做？', C.amber], ['算 ROI', '省下的钱够不够？', C.coral], ['留人工', '错了谁发现？', C.indigo], ['复盘', '数据如何变好？', C.mint]];
+  qs.forEach((it, i) => { const x = 1.0 + (i % 3) * 4.05; const y = 2.0 + Math.floor(i / 3) * 1.65; card(s, x, y, 3.25, 1.15, { fill: C.white, line: it[2], lineWidth: 1.5, shadow: true }); dot(s, x + 0.28, y + 0.32, 0.42, it[2]); label(s, String(i + 1), x + 0.28, y + 0.4, 0.42, C.navy, 12, { align: 'center', bold: true }); label(s, it[0], x + 0.9, y + 0.2, 1.7, C.indigo, 16, { bold: true }); label(s, it[1], x + 0.9, y + 0.62, 1.9, C.muted, 12); });
+  label(s, '把“理解原理”翻译成流程：每个 AI 项目都要能回答这六个问题。', 1.3, 6.2, 10.6, C.indigo, 16, { align: 'center', bold: true });
+  addFooter(s, 17); addNotes(s, '用六个问题替代抽象的 AI 愿景：场景、数据、护栏、ROI、人工和复盘。它们对应模型输入、系统权限、评测和运营闭环。');
 }
 
-// 16 — close
+// 18 — Close
 {
   const s = pptx.addSlide(); addBg(s, C.navy);
-  s.addText('中心思想', { x: 0.8, y: 0.72, w: 2.0, h: 0.3, fontFace: FONT.body, fontSize: 12, bold: true, charSpacing: 2, color: C.ice, margin: 0 });
-  s.addText('把 AI 放在\n“可验证的工位”', { x: 0.8, y: 1.35, w: 6.35, h: 1.55, fontFace: FONT.head, fontSize: 34, bold: true, color: C.white, margin: 0, fit: 'shrink' });
-  s.addText('懂原理 → 会算账 → 设边界 → 留人复核 → 持续迭代', { x: 0.83, y: 3.38, w: 6.15, h: 0.35, fontFace: FONT.body, fontSize: 18, color: C.mint, bold: true, margin: 0, fit: 'shrink' });
-  const qs = [
-    ['它凭什么知道？', '数据和上下文是否可信？', C.ice],
-    ['错了谁发现？', '有没有评测、复核和回滚？', C.amber],
-    ['省下的钱够吗？', '单位成本是否小于业务价值？', C.coral]
-  ];
-  qs.forEach((it, i) => { const x = 7.65; const y = 1.2 + i * 1.45; card(s, x, y, 4.5, 1.02, { fill: C.indigo, line: it[2], lineWidth: 1.4 }); dot(s, x + 0.28, y + 0.28, 0.42, it[2]); label(s, String(i + 1), x + 0.28, y + 0.37, 0.42, C.navy, 13, { align: 'center', bold: true }); label(s, it[0], x + 0.9, y + 0.2, 2.9, C.white, 17, { bold: true }); label(s, it[1], x + 0.9, y + 0.61, 3.2, C.darkMuted, 11.5); });
-  s.addText('AI 是概率引擎和放大器，不是责任承担者。\n企业竞争力来自“数据 + 流程 + 评测 + 人”的闭环。', { x: 0.83, y: 5.45, w: 6.3, h: 0.7, fontFace: FONT.body, fontSize: 17, color: C.white, bold: true, margin: 0, fit: 'shrink' });
-  s.addText('谢谢', { x: 0.83, y: 6.7, w: 1.0, h: 0.25, fontFace: FONT.head, fontSize: 15, color: C.darkMuted, margin: 0 });
-  addFooter(s, 16, true);
-  addNotes(s, '结尾留三个问题：它凭什么知道？错了谁发现？省下的钱够吗？这三个问题能把 AI 从演示效果拉回到企业治理和经营结果。');
+  s.addText('把 AI 放在\n可验证的工位', { x: 0.8, y: 1.15, w: 6.2, h: 1.35, fontFace: FONT.head, fontSize: 34, bold: true, color: C.white, margin: 0, fit: 'shrink' });
+  s.addText('懂原理 → 会评估 → 设边界 → 再逐步放权', { x: 0.83, y: 3.2, w: 6.0, h: 0.34, fontFace: FONT.body, fontSize: 18, color: C.mint, bold: true, margin: 0 });
+  const qs = [['它凭什么知道？', '数据和上下文可信吗？', C.ice], ['错了谁发现？', '有测试、复核和回滚吗？', C.amber], ['省下的钱够吗？', '单位成本小于业务价值吗？', C.coral]];
+  qs.forEach((it, i) => { const y = 1.3 + i * 1.45; card(s, 7.65, y, 4.55, 1.02, { fill: C.indigo, line: it[2], lineWidth: 1.4 }); dot(s, 7.95, y + 0.3, 0.4, it[2]); label(s, String(i + 1), 7.95, y + 0.38, 0.4, C.navy, 12, { align: 'center', bold: true }); label(s, it[0], 8.58, y + 0.18, 2.8, C.white, 16, { bold: true }); label(s, it[1], 8.58, y + 0.58, 3.1, C.darkMuted, 11.5); });
+  s.addText('AI 是概率引擎和放大器，不是责任承担者。', { x: 0.83, y: 5.55, w: 6.0, h: 0.3, fontFace: FONT.body, fontSize: 17, color: C.white, bold: true, margin: 0 });
+  addFooter(s, 18, true); addNotes(s, '收尾回到三个问题：它凭什么知道？错了谁发现？省下的钱够吗？理解原理的目的，是把 AI 放到可验证、可追责、可迭代的工位。');
 }
 
-pptx.writeFile({ fileName: '/Users/minster/code/ai/ai-course/ai_from_principles_to_practice.pptx' });
+async function addFadeTransitions(fileName) {
+  const zip = await JSZip.loadAsync(fs.readFileSync(fileName));
+  const slideNames = Object.keys(zip.files).filter(name => /^ppt\/slides\/slide\d+\.xml$/.test(name));
+  await Promise.all(slideNames.map(async name => {
+    const xml = await zip.file(name).async('string');
+    if (xml.includes('<p:transition')) return;
+    zip.file(name, xml.replace('</p:cSld>', '</p:cSld><p:transition spd="med" advClick="1"><p:fade/></p:transition>'));
+  }));
+  fs.writeFileSync(fileName, await zip.generateAsync({ type: 'nodebuffer', compression: 'DEFLATE' }));
+}
+
+const output = path.join(__dirname, 'ai_from_principles_to_practice.pptx');
+pptx.writeFile({ fileName: output }).then(() => addFadeTransitions(output)).catch((error) => {
+  console.error(error);
+  process.exitCode = 1;
+});

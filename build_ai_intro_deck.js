@@ -15,9 +15,9 @@ pptx.theme = { headFontFace: 'Hiragino Sans GB W6', bodyFontFace: 'Hiragino Sans
 const FONT = { head: 'Hiragino Sans GB W6', body: 'Hiragino Sans GB W3' };
 const C = {
   ink: '10212B', navy: '0B1020', indigo: '1A2454', teal: '1B998B', mint: '34D399',
-  ice: '6EE7F9', coral: 'FF7A59', amber: 'FFC857', white: 'FFFFFF',
+  ice: '6EE7F9', coral: 'FF7A59', amber: 'FFC857', red: 'E85D75', white: 'FFFFFF',
   paper: 'F7FAFC', pale: 'EEF5F5', line: 'D6E2E6', muted: '637381', darkMuted: 'A9B5C6',
-  soft: 'E8EFF2'
+  soft: 'E8EFF2', greenBg: 'E8FFF5', yellowBg: 'FFF6DD'
 };
 
 function addBg(slide, color = C.paper) { slide.background = { color }; }
@@ -101,9 +101,10 @@ function addGrid(slide, x, y, cell, rows, cols, highlight = null) {
   s.addText('ŷ = f(x; θ)', { x: 3.1, y: 1.36, w: 3.1, h: 0.55, fontFace: FONT.head, fontSize: 28, bold: true, italic: true, color: C.indigo, margin: 0, align: 'center' });
   card(s, 0.8, 2.15, 5.7, 3.65, { fill: C.white, line: C.ice, lineWidth: 1.6, shadow: true });
   pill(s, '训练：参数会变', 1.1, 2.48, 1.5, C.ice, C.navy, 12);
-  step(s, 1.12, 3.14, 1, '输入 + 答案', '看历史样本', C.ice);
-  step(s, 1.12, 3.95, 2, '预测与答案比较', '计算损失', C.teal);
-  step(s, 1.12, 4.76, 3, '反向传播更新 θ', '让错误变小', C.coral);
+  step(s, 1.12, 3.02, 1, '输入 + 答案', '看历史样本', C.ice);
+  step(s, 1.12, 3.64, 2, '前向预测', '得到 ŷ', C.teal);
+  step(s, 1.12, 4.26, 3, '计算损失', '比较 ŷ 和答案', C.amber);
+  step(s, 1.12, 4.88, 4, '反传求梯度 → 优化器更新', '学习率决定步长', C.coral);
   line(s, 1.3, 5.32, 5.7, 5.32, C.amber, 2, 'dash', 'triangle');
   label(s, '训练是一条反馈回路', 3.0, 5.42, 2.1, C.amber, 12, { align: 'center', bold: true });
   card(s, 6.85, 2.15, 5.7, 3.65, { fill: C.white, line: C.coral, lineWidth: 1.6, shadow: true });
@@ -171,7 +172,7 @@ function addGrid(slide, x, y, cell, rows, cols, highlight = null) {
 // 06 — Transformer attention
 {
   const s = pptx.addSlide(); addBg(s, C.navy); addTitle(s, 'Transformer：让每个词计算“我该参考谁”', '05 · 注意力', true);
-  s.addText('句子：小明把书放进抽屉，因为它太重。这里“它”需要回看上下文。', { x: 0.78, y: 1.5, w: 11.7, h: 0.34, fontFace: FONT.body, fontSize: 16, color: C.darkMuted, margin: 0 });
+  s.addText('双向编码器示意：小明把书放进抽屉，因为它太重。这里“它”可以参考整句上下文。', { x: 0.78, y: 1.5, w: 11.7, h: 0.34, fontFace: FONT.body, fontSize: 15.5, color: C.darkMuted, margin: 0 });
   const toks = ['小明', '把', '书', '放进', '抽屉', '因为', '它', '太重'];
   toks.forEach((t, i) => { const x = 0.95 + i * 1.02; const emph = t === '它'; card(s, x, 2.35, 0.82, 0.5, { fill: emph ? C.coral : C.indigo, line: emph ? C.coral : C.ice, lineWidth: 1 }); label(s, t, x, 2.5, 0.82, C.white, 14, { align: 'center', bold: emph }); });
   label(s, '“它”', 7.08, 3.02, 0.82, C.coral, 15, { align: 'center', bold: true });
@@ -181,8 +182,8 @@ function addGrid(slide, x, y, cell, rows, cols, highlight = null) {
   label(s, 'Q · 我在找什么', 9.95, 3.42, 2.2, C.ice, 13, { bold: true });
   label(s, 'K · 谁最匹配', 9.95, 3.82, 2.2, C.mint, 13, { bold: true });
   label(s, 'V · 带来什么信息', 9.95, 4.22, 2.2, C.coral, 13, { bold: true });
-  s.addText('Q 与 K 打分 → softmax 变成比例 → 按比例汇总 V', { x: 1.1, y: 5.7, w: 11.0, h: 0.28, fontFace: FONT.body, fontSize: 15, color: C.amber, align: 'center', bold: true, margin: 0 });
-  addFooter(s, 6, true); addNotes(s, '点击节奏：先出现句子，再强调“它”，最后出现权重和 Q/K/V。注意力不是人工写好的语法表，而是模型通过训练学会的匹配计算。');
+  s.addText('Q 与 K 打分 → softmax 变成比例 → 按比例汇总 V；数字仅为教学示意。', { x: 1.1, y: 5.7, w: 11.0, h: 0.28, fontFace: FONT.body, fontSize: 15, color: C.amber, align: 'center', bold: true, margin: 0 });
+  addFooter(s, 6, true); addNotes(s, '点击节奏：先出现句子，再强调“它”，最后出现权重和 Q/K/V。本页明确是双向编码器示意；GPT 的 decoder-only 因果注意力会屏蔽未来位置。注意力比例是教学示意，不是真实模型读出的测量值。');
 }
 
 // 07 — Transformer block
@@ -205,10 +206,10 @@ function addGrid(slide, x, y, cell, rows, cols, highlight = null) {
   tr.forEach((it, i) => { const y = 2.85 + i * 0.72; label(s, it[0], 1.12, y, 0.7, C.indigo, 13, { bold: true }); label(s, it[1], 2.0, y, 3.85, C.muted, 13, { h: 0.38 }); });
   card(s, 6.95, 1.75, 5.55, 4.55, { fill: C.indigo, line: C.indigo, shadow: true });
   pill(s, 'GPT：一套生成式配方', 7.25, 2.08, 1.95, C.coral, C.white, 12);
-  const gp = [['结构选择', 'decoder-only + causal mask'], ['训练目标', '大规模 next-token prediction'], ['工程放大', '数据、参数、算力和并行训练一起扩展'], ['对齐产品', '指令训练、偏好反馈、工具与对话状态']];
+  const gp = [['结构选择', '选择 decoder-only；因果遮罩继承自 Transformer'], ['预训练', 'GPT-1：无标签文本预训练，再做任务微调'], ['规模扩展', 'GPT-2/3：放大数据与模型，支持零 / 少样本'], ['后训练 / 系统', '指令偏好训练 + 工具 / 状态，塑造助手体验']];
   gp.forEach((it, i) => { const y = 2.78 + i * 0.65; dot(s, 7.28, y + 0.06, 0.18, [C.ice, C.teal, C.amber, C.coral][i]); label(s, it[0], 7.65, y, 1.2, C.white, 12.5, { bold: true }); label(s, it[1], 8.95, y, 2.95, C.darkMuted, 12.5, { h: 0.35 }); });
-  s.addText('准确说：GPT 不是“发明了另一种注意力”，而是把 Transformer 的生成子结构与预训练、规模化和对齐组合成了可泛化的语言模型路线。', { x: 1.0, y: 6.45, w: 11.25, h: 0.35, fontFace: FONT.body, fontSize: 14.5, color: C.indigo, bold: true, align: 'center', margin: 0, fit: 'shrink' });
-  addFooter(s, 8); addNotes(s, '用户要求讲清 GPT 相对于 Transformer 的进步。要避免说成“GPT 改进了注意力公式”：Transformer 是架构家族，GPT 的关键贡献是采用 decoder-only 因果生成结构，并配合 next-token 预训练、规模化训练和后续对齐，做成可通用的生成模型路线。');
+  s.addText('因果遮罩和自回归生成已在原始 Transformer 解码器中存在；GPT 的主线增量是预训练、迁移、规模化，以及后续助手对齐。', { x: 1.0, y: 6.45, w: 11.25, h: 0.35, fontFace: FONT.body, fontSize: 14.5, color: C.indigo, bold: true, align: 'center', margin: 0, fit: 'shrink' });
+  addFooter(s, 8); addNotes(s, '用户要求讲清 GPT 相对于 Transformer 的进步。要避免说成“GPT 改进了注意力公式”：Transformer 是架构家族，GPT 的关键贡献是采用 decoder-only 生成结构，并配合 next-token 预训练、规模化训练和后续对齐，做成可通用的生成模型路线。来源：Transformer 原始论文 https://arxiv.org/html/1706.03762v7；GPT-1 https://cdn.openai.com/research-covers/language-unsupervised/language_understanding_paper.pdf；GPT-2 https://cdn.openai.com/better-language-models/language_models_are_unsupervised_multitask_learners.pdf；GPT-3 https://arxiv.org/abs/2005.14165；InstructGPT https://arxiv.org/abs/2203.02155。');
 }
 
 // 09 — GPT generation
@@ -234,7 +235,7 @@ function addGrid(slide, x, y, cell, rows, cols, highlight = null) {
   const cards = [['注意力计算', 'n 个 token 的全注意力约有 n² 个位置配对。长度翻倍，配对约变四倍。', C.coral], ['KV cache', '历史 K/V 会复用，但 token 越长，缓存越大；生成每一步仍要访问历史。', C.amber], ['位置泛化', '能算出更远的位置，不代表模型训练过这种距离，更不代表一定用得好。', C.ice], ['有效利用', '资料放进窗口后，模型仍可能漏掉中间证据、多个条件或远处关系。', C.mint]];
   cards.forEach((it, i) => { const x = 0.8 + (i % 2) * 6.15; const y = 1.85 + Math.floor(i / 2) * 2.15; card(s, x, y, 5.45, 1.65, { fill: C.indigo, line: it[2], lineWidth: 1.3 }); dot(s, x + 0.3, y + 0.32, 0.36, it[2]); label(s, String(i + 1), x + 0.3, y + 0.4, 0.36, C.navy, 12, { align: 'center', bold: true }); label(s, it[0], x + 0.88, y + 0.23, 2.2, C.white, 16, { bold: true }); label(s, it[1], x + 0.88, y + 0.72, 4.1, C.darkMuted, 12.5, { h: 0.58 }); });
   s.addText('“支持更长输入”不等于“无限记忆”，也不等于“所有证据都能可靠综合”。', { x: 1.0, y: 6.45, w: 11.3, h: 0.3, fontFace: FONT.body, fontSize: 15.5, color: C.amber, bold: true, align: 'center', margin: 0 });
-  addFooter(s, 10, true); addNotes(s, '这一页把上下文限制拆成四个独立原因。FlashAttention 可以优化内存访问，但不会让标准稠密注意力的配对计算、KV cache 和有效利用问题消失。');
+  addFooter(s, 10, true); addNotes(s, '这一页把上下文限制拆成四个独立原因。FlashAttention 可以优化内存访问，但不会让标准稠密注意力的配对计算、KV cache 和有效利用问题消失。来源：Transformer 原始论文 https://arxiv.org/html/1706.03762v7；FlashAttention https://arxiv.org/abs/2205.14135；Hugging Face KV cache https://huggingface.co/docs/transformers/cache_explanation；Lost in the Middle https://arxiv.org/abs/2307.03172。');
 }
 
 // 11 — Why RSI
@@ -249,7 +250,7 @@ function addGrid(slide, x, y, cell, rows, cols, highlight = null) {
   const needs = ['发现弱点', '提出候选改动', '实际跑实验', '外部评估后保留'];
   needs.forEach((t, i) => { const y = 3.38 + i * 0.48; dot(s, 8.86, y + 0.05, 0.16, [C.ice, C.teal, C.amber, C.coral][i]); label(s, t, 9.2, y, 2.6, C.darkMuted, 13, { bold: true }); });
   label(s, '通过评估的版本进入下一轮，成为下一轮改进的基础。', 1.2, 6.35, 10.7, C.indigo, 15.5, { align: 'center', bold: true });
-  addFooter(s, 11); addNotes(s, 'RSI 前先讲为什么需要它：模型静态、人工试错慢、上下文和实验历史有限、评估不容易。RSI 试图把发现问题、提出改动、实验和筛选纳入持续循环。');
+  addFooter(s, 11); addNotes(s, 'RSI 前先讲为什么需要它：模型静态、人工试错慢、上下文和实验历史有限、评估不容易。RSI 试图把发现问题、提出改动、实验和筛选纳入持续循环。来源：RSI 概念综述 https://arxiv.org/html/2609.11873v3；AIDE² https://arxiv.org/html/2609.26457v1。');
 }
 
 // 12 — RSI loop
@@ -261,7 +262,7 @@ function addGrid(slide, x, y, cell, rows, cols, highlight = null) {
   label(s, '通过才保留；失败就回滚或换候选', 4.2, 5.02, 4.6, C.amber, 13, { align: 'center', bold: true });
   card(s, 2.1, 5.75, 9.2, 0.55, { fill: C.white, line: C.line });
   label(s, '边界：权限、沙盒、独立评估、版本记录、可回滚。改进代码不等于基础模型权重自动更新。', 2.35, 5.94, 8.7, C.indigo, 12.5, { align: 'center', bold: true });
-  addFooter(s, 12); addNotes(s, '点击节奏：四个节点依次出现，再出现回路和护栏。RSI 是工程闭环，不是一个新的神经网络层。改进对象可以是代理代码、工具、数据、模型参数或改进策略，必须说明具体改了哪一层。');
+  addFooter(s, 12); addNotes(s, '点击节奏：四个节点依次出现，再出现回路和护栏。RSI 是工程闭环，不是一个新的神经网络层。改进对象可以是代理代码、工具、数据、模型参数或改进策略，必须说明具体改了哪一层。来源：RSI 概念综述 https://arxiv.org/html/2609.11873v3；AIDE² https://arxiv.org/html/2609.26457v1；AlphaEvolve 官方介绍 https://deepmind.google/blog/alphaevolve-a-gemini-powered-coding-agent-for-designing-advanced-algorithms/。');
 }
 
 // 13 — Limits
